@@ -8,6 +8,8 @@ using DataFrames: DataFrame
 
 export get_machine_bus, get_RL_line, get_load_bus, get_junction_bus, load_ieee9bus_emt, load_ieee9bus
 
+include("models.jl")
+
 function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name, vidx)
     @named machine = SauerPaiMachine(;
         stator_dynamics=true,
@@ -42,6 +44,39 @@ function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name
 
     # generate the MTKBus (i.e. the MTK model containg the busbar and the injector)
     dynbus = compile_bus(MTKBus(injector, shunt); current_source=false, vidx)
+    if !isnothing(pf)
+        set_pfmodel!(dynbus, pf)
+    end
+    dynbus
+end
+
+function get_gfm_bus(; name, vidx, pf=nothing)
+    @named gfl = ComposableInverter.DroopInverter(
+        filter_type=:LCL,
+        vsrc₊ω0 = 2π*60,
+        droop₊ω0 = 2π*60,
+    )
+    @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
+
+    dynbus = compile_bus(MTKBus(gfl, shunt); name=name, vidx=vidx)
+
+    initf = @initformula begin
+        :gfl₊droop₊Vset = sqrt(:busbar₊u_r^2 + :busbar₊u_i^2)
+    end
+    add_initformula!(dynbus, initf)
+
+    if !isnothing(pf)
+        set_pfmodel!(dynbus, pf)
+    end
+    dynbus
+end
+
+function get_gfl_bus(; name, vidx, pf=nothing)
+    @named gfl = ConstantPowerInverter(; csrc₊ω0=2π*60)
+    # add a dynamic shunt to mimic the terminal capacitance of the machine
+    @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
+
+    dynbus = compile_bus(MTKBus(gfl, shunt); name=name, vidx=vidx)
     if !isnothing(pf)
         set_pfmodel!(dynbus, pf)
     end
@@ -123,14 +158,14 @@ function load_ieee9bus_emt(; gfm = false, gfl = false)
         gen2p = (;X_ls=0.08958, X_d=0.8958, X′_d=0.1198, X″_d=0.11, X_q=0.8645, X′_q=0.1969, X″_q=0.11, T′_d0=6.00, T′_q0=0.535, H= 6.40)
         @named bus2 = get_machine_bus(; machine_p=gen2p, pf=pfPV(V=1.025, P=1.63), vidx=2)
     else
-        # inserte code here to repalce bus2 with a gridforming inverter
+        @named bus2 = get_gfm_bus(; name=:bus2, vidx=2, pf=pfPV(V=1.025, P=1.63))
     end
 
     if !gfl
         gen3p = (;X_ls=0.13125, X_d=1.3125, X′_d=0.1813, X″_d=0.18, X_q=1.2578, X′_q=0.2500, X″_q=0.18, T′_d0=5.89, T′_q0=0.600, H= 3.01)
         @named bus3 = get_machine_bus(; machine_p=gen3p, pf=pfPV(V=1.025, P=0.85), vidx=3)
     else
-        # inserte code here to repalce bus3 with a gridfollowing inverter
+        @named bus3 = get_gfl_bus(; name=:bus3, vidx=3, pf=pfPV(V=1.025, P=0.85))
     end
 
     @named bus4 = get_junction_bus(; B=Bbus[4], vidx=4)

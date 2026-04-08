@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "242fc93c8dcdf931ab65e12dd3fbaa1847c95ae0"
+project_hash = "9a605487d30d32af9b40f4f38e2c500a15339d68"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -1977,7 +1977,7 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.4"
 
 [[deps.PoSyDysPaperCompanion]]
-deps = ["CSV", "CairoMakie", "DataFrames", "ForwardDiff", "Graphs", "LinearAlgebra", "ModelingToolkit", "NetworkDynamics", "OrdinaryDiffEqNonlinearSolve", "OrdinaryDiffEqRosenbrock", "OrdinaryDiffEqTsit5", "PowerDynamics", "SparseConnectivityTracer", "SymbolicIndexingInterface"]
+deps = ["CSV", "CairoMakie", "DataFrames", "DiffEqCallbacks", "ForwardDiff", "Graphs", "LinearAlgebra", "ModelingToolkit", "NetworkDynamics", "OrdinaryDiffEqNonlinearSolve", "OrdinaryDiffEqRosenbrock", "OrdinaryDiffEqTsit5", "PowerDynamics", "SparseConnectivityTracer", "SymbolicIndexingInterface"]
 path = "."
 uuid = "091565a9-e1fb-4855-a2b9-f7c9dfb9e51f"
 version = "0.1.0"
