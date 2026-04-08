@@ -13,23 +13,8 @@ using OrderedCollections: OrderedDict
 using LinearAlgebra
 
 ####
-#### Part 1: Data Generation
+#### Helper Functions
 ####
-
-# Scales to evaluate; 1.0 is the baseline.
-# Using logarithmically-spaced values so that scaling above/below 1 is symmetric.
-below = range(0.1, 1.0, length=25)
-above = range(1.0, 4.0, length=25)
-scales = sort!(unique!(vcat(below, above)))
-baseline_idx = findfirst(==(1.0), scales)
-
-@info "Computing eigenvalues for $(length(scales)) impedance scales..."
-eigenvalue_data = OrderedDict{Float64, Vector{ComplexF64}}()
-for Zscale in scales
-    @info "  Zscale = $Zscale"
-    nw, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=Zscale, verbose=false)
-    eigenvalue_data[Zscale] = jacobian_eigenvals(s0) ./ (2π)
-end
 
 """
     match_eigenvalues(ref_eigs, new_eigs)
@@ -52,112 +37,161 @@ function match_eigenvalues(ref_eigs, new_eigs)
     return matched
 end
 
-# Build tracks matrix:  tracks[i, j]  = eigenvalue i at scales[j]
-# Chain matching outward from the baseline in both directions so that each step
-# only needs to match against its closest neighbour (better for large perturbations).
-n_eigs   = length(eigenvalue_data[1.0])
-n_scales = length(scales)
+"""
+    find_tracks(states::OrderedDict{Float64}; baseline_key=nothing) -> Matrix{ComplexF64}
 
-baseline_order = sortperm(eigenvalue_data[1.0]; by = x -> (real(x), imag(x)))
-tracks = Matrix{ComplexF64}(undef, n_eigs, n_scales)
-tracks[:, baseline_idx] = eigenvalue_data[1.0][baseline_order]
+Compute eigenvalue tracks from an ordered dict mapping parameter values to NWStates.
+Returns an (n_eigs × n_states) matrix where columns are matched across parameter values
+by nearest-neighbour chaining from the baseline outward.
 
-# Increasing scale: match each step against the previous (closer-to-baseline) step
-for j in (baseline_idx+1):n_scales
-    tracks[:, j] = match_eigenvalues(tracks[:, j-1], eigenvalue_data[scales[j]])
+`baseline_key` defaults to the key closest to 1.0.
+"""
+function find_tracks(states::OrderedDict{Float64}; baseline_key=nothing)
+    key_vals = collect(keys(states))
+    n_steps  = length(key_vals)
+
+    eig_data = [jacobian_eigenvals(s) ./ (2π) for s in values(states)]
+    n_eigs   = length(first(eig_data))
+
+    baseline_idx = if isnothing(baseline_key)
+        argmin(abs.(key_vals .- 1.0))
+    else
+        idx = findfirst(==(baseline_key), key_vals)
+        isnothing(idx) && error("baseline_key $baseline_key not found in states")
+        idx
+    end
+
+    baseline_order = sortperm(eig_data[baseline_idx]; by = x -> (real(x), imag(x)))
+    tracks = Matrix{ComplexF64}(undef, n_eigs, n_steps)
+    tracks[:, baseline_idx] = eig_data[baseline_idx][baseline_order]
+
+    for j in (baseline_idx+1):n_steps
+        tracks[:, j] = match_eigenvalues(tracks[:, j-1], eig_data[j])
+    end
+    for j in (baseline_idx-1):-1:1
+        tracks[:, j] = match_eigenvalues(tracks[:, j+1], eig_data[j])
+    end
+
+    tracks
 end
 
-# Decreasing scale: same idea but walk from baseline downward
-for j in (baseline_idx-1):-1:1
-    tracks[:, j] = match_eigenvalues(tracks[:, j+1], eigenvalue_data[scales[j]])
+"""
+    plot_tracks(tracks, key_vals; kwargs...) -> Figure
+
+Plot eigenvalue tracks in the complex plane. `key_vals` is the vector of Float64 parameter
+values; colours are log-normalised (blue = low, red = high, black cross = baseline).
+
+# Keyword arguments
+- `highlight_modes`: list of mode indices to mark with red circles
+- `xlims`, `ylims`: axis limits as `(lo, hi)` tuples
+- `colormap`: Makie colormap (default `:bluesreds`)
+- `title`: axis title
+- `baseline_key`: key to use for the baseline marker; defaults to key nearest to 1.0
+"""
+function plot_tracks(tracks, key_vals;
+    highlight_modes = Int[],
+    xlims           = nothing,
+    ylims           = nothing,
+    colormap        = :bluesreds,
+    title           = "Eigenvalues",
+    baseline_key    = nothing,
+)
+    log_keys    = log.(key_vals)
+    max_log     = maximum(abs.(log_keys))
+    norm_colors = iszero(max_log) ? zeros(length(key_vals)) : log_keys ./ max_log
+
+    baseline_idx = if isnothing(baseline_key)
+        argmin(abs.(key_vals .- 1.0))
+    else
+        findfirst(==(baseline_key), key_vals)
+    end
+
+    fig = Figure(size=(600, 500))
+    ax  = Axis(fig[1, 1];
+        xlabel = "Real Part [Hz]",
+        ylabel = "Imaginary Part [Hz]",
+        title)
+
+    for m in highlight_modes
+        scatter!(ax, real.(tracks[m, :]), imag.(tracks[m, :]);
+            color = :red, markersize = 8, marker = :circle)
+    end
+
+    for i in axes(tracks, 1)
+        lines!(ax, real.(tracks[i, :]), imag.(tracks[i, :]);
+            color      = norm_colors,
+            joinstyle  = :round,
+            linecap    = :round,
+            colorrange = (-1.0, 1.0),
+            colormap,
+            linewidth  = 3)
+    end
+
+    scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
+        color = :black, markersize = 6, marker = :xcross)
+
+    !isnothing(xlims) && xlims!(ax, xlims...)
+    !isnothing(ylims) && ylims!(ax, ylims...)
+
+    fig
 end
+
+####
+#### Part 1: Data Generation
+####
+
+# Scales to evaluate; 1.0 is the baseline.
+# Using logarithmically-spaced values so that scaling above/below 1 is symmetric.
+below = range(0.1, 1.0, length=25)
+above = range(1.0, 4.0, length=25)
+scales = sort!(unique!(vcat(below, above)))
+
+@info "Computing eigenvalues for $(length(scales)) impedance scales..."
+eigenvalue_data = OrderedDict{Float64, NWState}()
+for Zscale in scales
+    @info "  Zscale = $Zscale"
+    _, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=Zscale, verbose=false)
+    eigenvalue_data[Zscale] = s0
+end
+
+tracks = find_tracks(eigenvalue_data)
 
 ####
 #### Part 2: Visualization
 ####
 
-# Map scales to a symmetric colour axis via log transform:
-#   log(1) = 0   → neutral midpoint of the diverging colormap
-#   log(scale) < 0 → blue  (impedance reduced)
-#   log(scale) > 0 → red   (impedance increased)
-log_scales  = log.(scales)
-max_log     = maximum(abs.(log_scales))
-norm_colors = log_scales ./ max_log        # in [-1, 1], 0 at baseline
+key_vals = collect(keys(eigenvalue_data))
 
-cmap  = :bluesreds   # blue = low impedance, red = high impedance
-let
-    fig = Figure(size=(600, 500))
+plot_tracks(tracks, key_vals;
+    highlight_modes = [55, 72],
+    xlims           = (-1, 1),
+    ylims           = (-2, 2),
+    title           = "Eigenvalues for different Grid Strengths")
 
-    ax = Axis(fig[1, 1], xlabel = "Real Part [Hz]", ylabel = "Imaginary Part [Hz]", title = "Eigenvalues for different Grid Strengths")
-
-    # highlight mode 54
-    hlmodes = [55, 72]
-    for m in hlmodes
-         scatter!(ax,
-            real.(tracks[m, :]),
-            imag.(tracks[m, :]);
-            color      = :red,
-            markersize = 8,
-            marker     = :circle)
-    end
-
-    for i in 1:n_eigs
-        lines!(ax, real.(tracks[i, :]), imag.(tracks[i, :]);
-            color      = norm_colors,
-            joinstyle=:round,
-            linecap   = :round,
-            colorrange = (-1.0, 1.0),
-            colormap   = cmap,
-            linewidth  = 3)
-    end
-
-    # Mark the baseline positions (Zscale = 1) with filled circles
-    scatter!(ax,
-        real.(tracks[:, baseline_idx]),
-        imag.(tracks[:, baseline_idx]);
-        color      = :black,
-        markersize = 6,
-        marker     = :xcross)
-
-    # xlims!(ax, -40, 5)
-    # ylims!(ax, -120, 120)
-    xlims!(ax, -1, 1)
-    ylims!(ax, -2, 2)
-
-    fig
-end
-
-show_participation_factors(s0; modes=x -> abs(x/(2π) - (-23+im*100)) < 10, threshold=0.001)
-show_participation_factors(s0; modes=x -> abs(x/(2π) - (-0.1+im*0.8)) < 0.5, threshold=0.01)
+show_participation_factors(eigenvalue_data[1.0]; modes=x -> abs(x/(2π) - (-23+im*100)) < 10, threshold=0.001)
+show_participation_factors(eigenvalue_data[1.0]; modes=x -> abs(x/(2π) - (-0.1+im*0.8)) < 0.5, threshold=0.01)
 
 # We identify 3 critical/interesting modes
-# - mode 54: becomes unstable when impedance increses
-# - mode 72: super close to zero, small spread copared to others but clear ted to become unstable
+# - mode 54: becomes unstable when impedance increases
+# - mode 72: super close to zero, small spread compared to others but clear tend to become unstable
 # - mode 43: looks similar to 54 (wide spread) but remains stable
 
 cmode = 54
 # critical mode is 54-55 pair
 @info "Participation factors for baseline case of mode which becomes critical:"
-nw, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=1.0, verbose=false)
+s0 = eigenvalue_data[1.0]
 show_participation_factors(s0; modes=[cmode])
-@info "Show eigenvalue sensitivieits for this case"
-
-# for the sensitivity we only care about parameters of vertex 2 and 3 (gfi/gfl)
-# params_of_interest = vidxs(s0, 2:3, s=false, p=true, in=false, out=false, obs=false)
-# show_eigenvalue_sensitivity(s0, cmode; params=params_of_interest)
 
 # find the last value which is still stable
 idx = findlast(λ -> real(λ) < 0, tracks[cmode, :])
-scale_critical = scales[idx]
-critical_mode = tracks[cmode, idx]
+scale_critical = key_vals[idx]
+critical_mode  = tracks[cmode, idx]
 
-nw_crit, s0_crit = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_critical, verbose=false)
+s0_crit = eigenvalue_data[scale_critical]
 # find index in critical state which is closest to the critical mode
-idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit)./ (2π))[2]
+idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
 @info "Participation factors for critical mode right before it becomes critical:"
 show_participation_factors(s0_crit; modes=idx_crit)
-# @info "Show eigenvalue sensitivieits for this case"
-# show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
 
 ####
 #### Inspect the bus impedance
@@ -257,7 +291,7 @@ end
 devices_bode_plot(s0, s0_crit)
 
 ####
-#### Excursion: are we truly looking at invert interaction?
+#### Excursion: are we truly looking at inverter interaction?
 ####
 s0_gfl = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
 s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]

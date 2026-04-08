@@ -11,9 +11,13 @@ using OrdinaryDiffEqRosenbrock
 using OrdinaryDiffEqTsit5
 using OrdinaryDiffEqNonlinearSolve
 using CairoMakie
+using OrderedCollections: OrderedDict
 using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
 using Optimization, Optimisers, OptimizationOptimisers
 
+####
+#### Setup
+####
 
 scales = [1.0, 1.5, 2.0]
 
@@ -48,7 +52,6 @@ function plot_vmag(sols::Vector)
         for i in [2,3,8]
             lines!(ax, ts, sol(ts, idxs=VIndex(i, :busbar₊u_mag)).u)
         end
-        # xlims!(ax, -0.1, sol.t[end])
         xlims!(ax, -0.01, 0.5)
         ylims!(ax, 0.945, 1.035)
         row += 1
@@ -76,7 +79,7 @@ function generate_loss(problems, tpidx)
 
     loss = p -> begin
         total = 0.0
-    
+
         for (k, prob) in enumerate(problems)
             p_new = zeros(eltype(p), pdim)
             p_new .= prob.p
@@ -85,11 +88,11 @@ function generate_loss(problems, tpidx)
             sol = solve(prob, Rodas5P(autodiff=true);
                 p = p_new,
                 saveat = t_eval)
-        
+
             if !SciMLBase.successful_retcode(sol)
                 return Inf
             end
-        
+
             # Voltage at buses 2, 3, 8 (GFM, GFL, load between them)
             all_V_t = reduce(hcat, sol(t_eval; idxs=VIndex([2,3,8], :busbar₊u_mag)).u)
             for bus in [1,2,3]
@@ -134,3 +137,27 @@ plot_vmag(solopt)
 for (sym, orig, tuend) in zip(tunable_p, p0opt, optsol.u)
     println("$(sym)  \t$(orig) \t=> $(tuend) \t(relative change = $(100*(tuend - orig)/orig)%)")
 end
+
+####
+#### Eigenvalue comparison: baseline vs tuned
+####
+
+baseline_ev_data = OrderedDict(scale => s0 for (scale, s0) in zip(scales, s0s))
+
+tuned_s0s = map(s0s) do s0
+    _nw = extract_nw(s0)
+    nw = Network(_nw)
+    for (pidx, p) in zip(tunable_p, optsol.u)
+        comp = pidx.compidx
+        sym = pidx.subidx
+        set_default!(nw[VIndex(comp)], sym, p)
+    end
+    initialize_from_pf!(nw, tol=1e-7, nwtol=1e-5, verbose=false)
+end;
+tuned_ev_data = OrderedDict(scale => s0 for (scale, s0) in zip(scales, tuned_s0s))
+
+tracks_baseline = find_tracks(baseline_ev_data)
+tracks_tuned    = find_tracks(tuned_ev_data)
+
+plot_tracks(tracks_baseline, scales; title="Eigenvalues — baseline", xlims=(-20,5), ylims=(-40,40))
+plot_tracks(tracks_tuned,    scales; title="Eigenvalues — tuned")
