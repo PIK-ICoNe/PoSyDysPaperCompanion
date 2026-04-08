@@ -117,7 +117,7 @@ function get_junction_bus(; B, name, vidx)
 end
 
 
-function load_ieee9bus_emt(; gfm = false, gfl = false)
+function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
     # line parameters
     linedat = """
     src | dst | R      | X      | B
@@ -145,7 +145,7 @@ function load_ieee9bus_emt(; gfm = false, gfl = false)
         m = if iszero(row.R) # transformer
             get_RL_line(; R=row.R, X=row.X, src=row.src, dst=row.dst, name=Symbol("t$(row.src)_$(row.dst)"))
         else # pi line
-            get_RL_line(; R=row.R, X=row.X, src=row.src, dst=row.dst, name=Symbol("l$(row.src)_$(row.dst)"))
+            get_RL_line(; R=Zscale*row.R, X=Zscale*row.X, src=row.src, dst=row.dst, name=Symbol("l$(row.src)_$(row.dst)"))
         end
         m.metadata[:B] = row.B # store the B value as metadata
         m
@@ -178,7 +178,7 @@ function load_ieee9bus_emt(; gfm = false, gfl = false)
     vertexfs = [bus1, bus2, bus3, bus4, bus5, bus6, bus7, bus8, bus9]
 
     nw = Network(vertexfs, linemodels; warn_order=false)
-    s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, subverbose=false)
+    s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, subverbose=false, verbose)
     nw, s0
 end
 
