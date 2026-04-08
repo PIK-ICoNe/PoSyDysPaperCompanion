@@ -58,18 +58,16 @@ function get_RL_line(; R, X, src, dst, name)
 end
 
 function get_load_bus(; P, Q, B, name, vidx)
-    @named shunt = DynamicParallelRCShunt(; ω0=2pi*60) # leave R and C free for init
-    dynmod = compile_bus(MTKBus(shunt); name=name, vidx=vidx)
+    @named load = ConstantYLoad()  # G, B free → set by init
+    @named shunt = DynamicCShunt(; ω0=2π*60, C=B)
 
-    gf = @guessformula begin
-        :shunt₊V_C_r = :busbar₊u_r
-        :shunt₊V_C_i = :busbar₊u_i
-        :shunt₊R = -P / (:busbar₊u_r^2 + :busbar₊u_i^2)
-        :shunt₊C = Q / (:busbar₊u_r^2 + :busbar₊u_i^2) + B
-    end
-    add_guessformula!(dynmod, gf)
+    dynmod = compile_bus(MTKBus(load, shunt); name, vidx)
 
-    static = MTKBus(Library.PQConstraint(; P, Q, name=:PQConstraint), StaticShunt(B=B, G=0; name=:shunt))
+    # PF: PQ constraint + static shunt for aggregated B
+    static = MTKBus(
+        Library.PQConstraint(; P, Q, name=:PQConstraint),
+        StaticShunt(; B=B, G=0, name=:shunt)
+    )
     pfmod = compile_bus(static)
     set_pfmodel!(dynmod, pfmod)
     dynmod
@@ -261,4 +259,3 @@ function load_ieee9bus()
 end
 
 end # module PoSyDysPaperCompanion
-
