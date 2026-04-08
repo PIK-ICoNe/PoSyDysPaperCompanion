@@ -17,8 +17,8 @@ using OrderedCollections: OrderedDict
 
 # Scales to evaluate; 1.0 is the baseline.
 # Using logarithmically-spaced values so that scaling above/below 1 is symmetric.
-below = range(0.1, 1.0, length=15)
-above = range(1.0, 4.0, length=15)
+below = range(0.1, 1.0, length=25)
+above = range(1.0, 4.0, length=25)
 scales = sort!(unique!(vcat(below, above)))
 baseline_idx = findfirst(==(1.0), scales)
 
@@ -89,6 +89,17 @@ let
 
     ax = Axis(fig[1, 1], xlabel = "Real Part [Hz]", ylabel = "Imaginary Part [Hz]", title = "Eigenvalues for different Grid Strengths")
 
+    # highlight mode 54
+    hlmodes = [55, 72]
+    for m in hlmodes
+         scatter!(ax,
+            real.(tracks[m, :]),
+            imag.(tracks[m, :]);
+            color      = :red,
+            markersize = 8,
+            marker     = :circle)
+    end
+
     for i in 1:n_eigs
         lines!(ax, real.(tracks[i, :]), imag.(tracks[i, :]);
             color      = norm_colors,
@@ -107,10 +118,45 @@ let
         markersize = 6,
         marker     = :xcross)
 
-    
-
-    xlims!(ax, -40, 5)
-    ylims!(ax, -120, 120)
+    # xlims!(ax, -40, 5)
+    # ylims!(ax, -120, 120)
+    xlims!(ax, -1, 1)
+    ylims!(ax, -2, 2)
 
     fig
 end
+
+show_participation_factors(s0; modes=x -> abs(x/(2π) - (-23+im*100)) < 10, threshold=0.001)
+show_participation_factors(s0; modes=x -> abs(x/(2π) - (-0.1+im*0.8)) < 0.5, threshold=0.01)
+
+# We identify 3 critical/interesting modes
+# - mode 54: becomes unstable when impedance increses
+# - mode 72: super close to zero, small spread copared to others but clear ted to become unstable
+# - mode 43: looks similar to 54 (wide spread) but remains stable
+
+cmode = 54
+# critical mode is 54-55 pair
+@info "Participation factors for baseline case of mode which becomes critical:"
+nw, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=1.0, verbose=false)
+show_participation_factors(s0; modes=[cmode])
+@info "Show eigenvalue sensitivieits for this case"
+
+# for the sensitivity we only care about parameters of vertex 2 and 3 (gfi/gfl)
+params_of_interest = vidxs(s0, 2:3, s=false, p=true, in=false, out=false, obs=false)
+show_eigenvalue_sensitivity(s0, cmode; params=params_of_interest)
+
+# find the last value which is still stable
+idx = findlast(λ -> real(λ) < 0, tracks[cmode, :])
+scale_critical = scales[idx]
+critical_mode = tracks[cmode, idx]
+
+nw_crit, s0_crit = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_critical, verbose=false)
+# find index in critical state which is closest to the critical mode
+idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit)./ (2π))[2]
+@info "Participation factors for critical mode right before it becomes critical:"
+show_participation_factors(s0_crit; modes=idx_crit)
+@info "Show eigenvalue sensitivieits for this case"
+show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
+
+
+
