@@ -162,56 +162,96 @@ show_participation_factors(s0_crit; modes=idx_crit)
 ####
 #### Inspect the bus impedance
 ####
-function devices_bode_plot(s0, s0_crit, labels=["Generator Bus", "GFM Bus", "GFL Bus"])
-    Gs = map([1, 2, 3]) do COMP
-        cs = VIndex(COMP, [:busbar₊i_r, :busbar₊i_i])
-        vs = VIndex(COMP, :busbar₊u_mag)
-        G = NetworkDynamics.linearize_network(s0; in=cs, out=vs)
+function compute_Zdd_aligned(s0, bus_idx)
+    # Full 2×2 MIMO impedance
+    G = NetworkDynamics.linearize_network(s0;
+        in  = VIndex(bus_idx, [:busbar₊i_r, :busbar₊i_i]),
+        out = VIndex(bus_idx, [:busbar₊u_r, :busbar₊u_i]))
 
-        i0 = s0[cs]
-        i0 = i0/norm(i0)
-        B′ = G.B * i0
-        D′ = G.D * i0
-        NetworkDescriptorSystem(A=G.A, B=B′, C=G.C, D=D′,
-            insym=VIndex(COMP, :busbar₊i_mag), outsym=VIndex(COMP, :busbar₊u_mag))
+    # Steady-state voltage angle at this bus
+    u_r = s0[VIndex(bus_idx, :busbar₊u_r)]
+    u_i = s0[VIndex(bus_idx, :busbar₊u_i)]
+    θ = atan(u_i, u_r)
+
+    # Rotation matrix: global ri → local dq (d aligned with voltage)
+    R = [cos(θ) sin(θ); -sin(θ) cos(θ)]
+
+    # Rotate: Z_dq = R · Z_ri · R^T
+    # In state-space form: new B = B · R^T (rotate inputs)
+    #                      new C = R · C   (rotate outputs)
+    #                      new D = R · D · R^T
+    B_rot = G.B * R'
+    C_rot = R * G.C
+    D_rot = R * G.D * R'
+
+    # Extract all four components of the 2×2 impedance matrix
+    #   rows → output (u_d, u_q);  cols → input (i_d, i_q)
+    make = (row, col, isym, osym) -> NetworkDescriptorSystem(
+        A = G.A, B = B_rot[:, col], C = C_rot[row:row, :], D = D_rot[row:row, col:col],
+        insym  = VIndex(bus_idx, isym),
+        outsym = VIndex(bus_idx, osym))
+
+    Zdd = make(1, 1, :i_d_local, :u_d_local)   # active I  → magnitude V  (resistive path)
+    Zdq = make(1, 2, :i_q_local, :u_d_local)   # reactive I → magnitude V  (Q-V path)
+    Zqd = make(2, 1, :i_d_local, :u_q_local)   # active I  → angle V      (P-ω path)
+    Zqq = make(2, 2, :i_q_local, :u_q_local)   # reactive I → angle V     (inductive path)
+
+    return Zdd, Zdq, Zqd, Zqq
+end
+
+function devices_bode_plot(s0, s0_crit; labels=["Generator Bus", "GFM Bus", "GFL Bus"])
+    unzip4(v) = (getindex.(v,1), getindex.(v,2), getindex.(v,3), getindex.(v,4))
+
+    Gs_dd,  Gs_dq,  Gs_qd,  Gs_qq  = unzip4(map(b -> compute_Zdd_aligned(s0,      b), [1,2,3]))
+    Gsc_dd, Gsc_dq, Gsc_qd, Gsc_qq = unzip4(map(b -> compute_Zdd_aligned(s0_crit, b), [1,2,3]))
+
+    # Layout matches the matrix:  [Z_dd  Z_dq]
+    #                              [Z_qd  Z_qq]
+    # Each cell = stacked gain + phase  →  4 plot-rows × 2 plot-cols
+    #                                       + header row 0 + row-group labels in col 0
+    fs  = 10 .^ range(log10(1e-2), log10(1e3); length=800)
+    jωs = 2π .* fs .* im
+    labels_crit = labels .* " (crit.)"
+
+    fig = Figure(; size=(900, 900))
+
+    # Column headers (input axis)
+    Label(fig[0, 2], L"d\text{-axis input}\ (i_d,\ \text{active})";   halign=:center, tellwidth=false)
+    Label(fig[0, 3], L"q\text{-axis input}\ (i_q,\ \text{reactive})"; halign=:center, tellwidth=false)
+
+    # Matrix cells: (matrix_row, matrix_col) → plot rows (gain, phase) and figure col
+    cell_data = [
+        (1, 1, Gs_dd,  Gsc_dd, L"Z_{dd}"),
+        (1, 2, Gs_dq,  Gsc_dq, L"Z_{dq}"),
+        (2, 1, Gs_qd,  Gsc_qd, L"Z_{qd}"),
+        (2, 2, Gs_qq,  Gsc_qq, L"Z_{qq}"),
+    ]
+    # Row-group labels (output axis); placed once per matrix row
+    Label(fig[1:2, 1], L"d\text{-axis output}\ (u_d,\ \text{magnitude})"; rotation=π/2, tellheight=false)
+    Label(fig[3:4, 1], L"q\text{-axis output}\ (u_q,\ \text{angle})";     rotation=π/2, tellheight=false)
+
+    for (mrow, mcol, Gbase, Gcrit, zlabel) in cell_data
+        gain_row  = 2*(mrow-1) + 1   # 1 or 3
+        phase_row = 2*(mrow-1) + 2   # 2 or 4
+        fig_col   = mcol + 1          # 2 or 3  (col 1 reserved for row labels)
+
+        ax_g = Axis(fig[gain_row,  fig_col];
+            ylabel    = Makie.LaTeXStrings.LaTeXString("$(zlabel) Gain (dB)"),
+            xscale    = log10)
+        ax_p = Axis(fig[phase_row, fig_col];
+            ylabel    = "Phase (deg)",
+            xlabel    = phase_row == 4 ? "Frequency (Hz)" : "",
+            xscale    = log10)
+
+        for (i, label) in enumerate(labels)
+            g  = Gbase[i];  gc = Gcrit[i]
+            lines!(ax_g, fs, map(s -> 20log10(abs(g(s))),  jωs); label, linewidth=2, color=Cycled(i))
+            lines!(ax_p, fs, rad2deg.(unwrap_rad(map(s -> angle(g(s)),  jωs))); label, linewidth=2, color=Cycled(i))
+            lines!(ax_g, fs, map(s -> 20log10(abs(gc(s))), jωs); label=labels_crit[i], linewidth=2, linestyle=:dash, color=Cycled(i))
+            lines!(ax_p, fs, rad2deg.(unwrap_rad(map(s -> angle(gc(s)), jωs))); label=labels_crit[i], linewidth=2, linestyle=:dash, color=Cycled(i))
+        end
+        mrow == 1 && mcol == 1 && axislegend(ax_g; position=:rb)
     end
-
-    Gs_crit = map([1, 2, 3]) do COMP
-        cs = VIndex(COMP, [:busbar₊i_r, :busbar₊i_i])
-        vs = VIndex(COMP, :busbar₊u_mag)
-        G = NetworkDynamics.linearize_network(s0_crit; in=cs, out=vs)
-
-        i0 = s0_crit[cs]
-        i0 = i0/norm(i0)
-        B′ = G.B * i0
-        D′ = G.D * i0
-        NetworkDescriptorSystem(A=G.A, B=B′, C=G.C, D=D′,
-            insym=VIndex(COMP, :busbar₊i_mag), outsym=VIndex(COMP, :busbar₊u_mag))
-    end
-
-
-    fig = Figure(; size=(800, 600))
-    Label(fig[1, 1], L"Z_{dd} Bode Plot", halign=:center, tellwidth=false)
-    ax1 = Axis(fig[2, 1], xlabel="Frequency (rad/s)", ylabel="Gain (dB)", xscale=log10)
-    ax2 = Axis(fig[3, 1], xlabel="Frequency (rad/s)", ylabel="Phase (deg)", xscale=log10)
-
-    fs = 10 .^ (range(log10(1e-4), log10(1e4); length=1000))
-    jωs = 2π * fs * im
-
-    for (i, G, label) in zip(eachindex(Gs), Gs, labels)
-        gains = map(s -> 20 * log10(abs(G(s))), jωs)
-        phases = rad2deg.(unwrap_rad(map(s -> angle(G(s)), jωs)))
-        lines!(ax1, fs, gains; label, linewidth=2, color=Cycled(i))
-        lines!(ax2, fs, phases; label, linewidth=2, color=Cycled(i))
-    end
-    lables_crit = labels .* " (critical)"
-    for (i, G, label) in zip(eachindex(Gs_crit), Gs_crit, lables_crit)
-        gains = map(s -> 20 * log10(abs(G(s))), jωs)
-        phases = rad2deg.(unwrap_rad(map(s -> angle(G(s)), jωs)))
-        lines!(ax1, fs, gains; label, linewidth=2, linestyle=:dash, color=Cycled(i))
-        lines!(ax2, fs, phases; label, linewidth=2, linestyle=:dash, color=Cycled(i))
-    end
-    axislegend(ax1)
     fig
 end
 devices_bode_plot(s0, s0_crit)
@@ -221,8 +261,8 @@ devices_bode_plot(s0, s0_crit)
 ####
 s0_gfl = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
 s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
-devices_bode_plot(s0_gfl, s0_gfl_crit, ["Generator Bus 1", "Generator Bus 2", "GFL Bus"])
+devices_bode_plot(s0_gfl, s0_gfl_crit; labels=["Generator Bus 1", "Generator Bus 2", "GFL Bus"])
 
 s0_gfm = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
 s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
-devices_bode_plot(s0_gfm, s0_gfm_crit, ["Generator Bus 1", "GFM Bus", "Generator Bus 2"])
+devices_bode_plot(s0_gfm, s0_gfm_crit; labels=["Generator Bus 1", "GFM Bus", "Generator Bus 2"])
