@@ -115,3 +115,63 @@ let
     end
     fig
 end
+
+sol_weak = let
+    nw_res_weak, s0_res_weak = load_ieee9bus_emt(gfl=true, gfm=true, Zscale=2.0)
+    prob_res_weak = ODEProblem(nw_res_weak, s0_res_weak, trange, add_nw_cb=cb)
+    sol = solve(prob_res_weak, Rodas5P())
+    SciMLBase.successful_retcode(sol) || @warn "Solution may not have been successful: retcode = $(sol.retcode)"
+    sol
+end;
+
+####
+#### Compare sol_res (Zscale=1, normal grid) vs sol_weak (Zscale=2, weak grid)
+####
+let
+    fig = Figure(size=(800, 800))
+    # tmin, tmax = trange
+    tmin, tmax = 0, 3
+    ts = range(tmin, tmax, length=1000)
+
+    ax_vmag_gen  = Axis(fig[1, 1], title="Voltage Magnitudes (Generators)")
+    ax_pgen      = Axis(fig[2, 1], title="Active Power (Generators)")
+    ax_freq      = Axis(fig[3, 1], title="Generator Frequency")
+    ax_vmag_load = Axis(fig[1, 2], title="Voltage Magnitudes (Loads)")
+    ax_pload     = Axis(fig[2, 2], title="Active Power (Loads)")
+
+    for i in [1, 2, 3]
+        lines!(ax_vmag_gen, ts, sol_res(ts,  idxs=VIndex(i, :busbar₊u_mag)).u, color=Cycled(i), label="Bus $i")
+        lines!(ax_vmag_gen, ts, sol_weak(ts, idxs=VIndex(i, :busbar₊u_mag)).u, color=Cycled(i), linestyle=:dash)
+
+        lines!(ax_pgen, ts, sol_res(ts,  idxs=VIndex(i, :busbar₊P)).u, color=Cycled(i), label="Bus $i")
+        lines!(ax_pgen, ts, sol_weak(ts, idxs=VIndex(i, :busbar₊P)).u, color=Cycled(i), linestyle=:dash)
+    end
+
+    # Frequency signals differ per bus type (machine / GFM droop / GFL PLL)
+    lines!(ax_freq, ts, sol_res(ts,  idxs=VIndex(1, :generator₊machine₊ω)).u,            color=Cycled(1), label="Bus 1")
+    lines!(ax_freq, ts, sol_weak(ts, idxs=VIndex(1, :generator₊machine₊ω)).u,            color=Cycled(1), linestyle=:dash)
+    lines!(ax_freq, ts, sol_res(ts,  idxs=VIndex(2, :gfl₊droop₊ω)).u ./ (2π*60),        color=Cycled(2), label="Bus 2")
+    lines!(ax_freq, ts, sol_weak(ts, idxs=VIndex(2, :gfl₊droop₊ω)).u ./ (2π*60),        color=Cycled(2), linestyle=:dash)
+    lines!(ax_freq, ts, sol_res(ts,  idxs=VIndex(3, :gfl₊csrc₊pll₊ω_pll)).u ./ (2π*60) .+ 1, color=Cycled(3), label="Bus 3")
+    lines!(ax_freq, ts, sol_weak(ts, idxs=VIndex(3, :gfl₊csrc₊pll₊ω_pll)).u ./ (2π*60) .+ 1, color=Cycled(3), linestyle=:dash)
+
+    for i in [5, 6, 8]
+        lines!(ax_vmag_load, ts, sol_res(ts,  idxs=VIndex(i, :busbar₊u_mag)).u, color=Cycled(i), label="Bus $i")
+        lines!(ax_vmag_load, ts, sol_weak(ts, idxs=VIndex(i, :busbar₊u_mag)).u, color=Cycled(i), linestyle=:dash)
+
+        lines!(ax_pload, ts, sol_res(ts,  idxs=VIndex(i, :busbar₊P)).u, color=Cycled(i), label="Bus $i")
+        lines!(ax_pload, ts, sol_weak(ts, idxs=VIndex(i, :busbar₊P)).u, color=Cycled(i), linestyle=:dash)
+    end
+
+    # Legend: bus colours from any axis + linestyle legend
+    Legend(fig[3, 2],
+        [
+            [LineElement(color=Cycled(i)) for i in [1, 2, 3]];
+            [LineElement(color=:gray, linestyle=:solid),
+             LineElement(color=:gray, linestyle=:dash)]
+        ],
+        [["Bus 1", "Bus 2", "Bus 3"]; ["Zscale = 1 (normal)", "Zscale = 2 (weak)"]];
+        framevisible=false)
+
+    fig
+end

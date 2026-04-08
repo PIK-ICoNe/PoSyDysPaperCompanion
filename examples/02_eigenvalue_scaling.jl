@@ -10,6 +10,7 @@ using OrdinaryDiffEqRosenbrock
 using OrdinaryDiffEqNonlinearSolve
 using CairoMakie
 using OrderedCollections: OrderedDict
+using LinearAlgebra
 
 ####
 #### Part 1: Data Generation
@@ -142,8 +143,8 @@ show_participation_factors(s0; modes=[cmode])
 @info "Show eigenvalue sensitivieits for this case"
 
 # for the sensitivity we only care about parameters of vertex 2 and 3 (gfi/gfl)
-params_of_interest = vidxs(s0, 2:3, s=false, p=true, in=false, out=false, obs=false)
-show_eigenvalue_sensitivity(s0, cmode; params=params_of_interest)
+# params_of_interest = vidxs(s0, 2:3, s=false, p=true, in=false, out=false, obs=false)
+# show_eigenvalue_sensitivity(s0, cmode; params=params_of_interest)
 
 # find the last value which is still stable
 idx = findlast(λ -> real(λ) < 0, tracks[cmode, :])
@@ -155,8 +156,73 @@ nw_crit, s0_crit = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_critical
 idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit)./ (2π))[2]
 @info "Participation factors for critical mode right before it becomes critical:"
 show_participation_factors(s0_crit; modes=idx_crit)
-@info "Show eigenvalue sensitivieits for this case"
-show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
+# @info "Show eigenvalue sensitivieits for this case"
+# show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
+
+####
+#### Inspect the bus impedance
+####
+function devices_bode_plot(s0, s0_crit, labels=["Generator Bus", "GFM Bus", "GFL Bus"])
+    Gs = map([1, 2, 3]) do COMP
+        cs = VIndex(COMP, [:busbar₊i_r, :busbar₊i_i])
+        vs = VIndex(COMP, :busbar₊u_mag)
+        G = NetworkDynamics.linearize_network(s0; in=cs, out=vs)
+
+        i0 = s0[cs]
+        i0 = i0/norm(i0)
+        B′ = G.B * i0
+        D′ = G.D * i0
+        NetworkDescriptorSystem(A=G.A, B=B′, C=G.C, D=D′,
+            insym=VIndex(COMP, :busbar₊i_mag), outsym=VIndex(COMP, :busbar₊u_mag))
+    end
+
+    Gs_crit = map([1, 2, 3]) do COMP
+        cs = VIndex(COMP, [:busbar₊i_r, :busbar₊i_i])
+        vs = VIndex(COMP, :busbar₊u_mag)
+        G = NetworkDynamics.linearize_network(s0_crit; in=cs, out=vs)
+
+        i0 = s0_crit[cs]
+        i0 = i0/norm(i0)
+        B′ = G.B * i0
+        D′ = G.D * i0
+        NetworkDescriptorSystem(A=G.A, B=B′, C=G.C, D=D′,
+            insym=VIndex(COMP, :busbar₊i_mag), outsym=VIndex(COMP, :busbar₊u_mag))
+    end
 
 
+    fig = Figure(; size=(800, 600))
+    Label(fig[1, 1], L"Z_{dd} Bode Plot", halign=:center, tellwidth=false)
+    ax1 = Axis(fig[2, 1], xlabel="Frequency (rad/s)", ylabel="Gain (dB)", xscale=log10)
+    ax2 = Axis(fig[3, 1], xlabel="Frequency (rad/s)", ylabel="Phase (deg)", xscale=log10)
 
+    fs = 10 .^ (range(log10(1e-4), log10(1e4); length=1000))
+    jωs = 2π * fs * im
+
+    for (i, G, label) in zip(eachindex(Gs), Gs, labels)
+        gains = map(s -> 20 * log10(abs(G(s))), jωs)
+        phases = rad2deg.(unwrap_rad(map(s -> angle(G(s)), jωs)))
+        lines!(ax1, fs, gains; label, linewidth=2, color=Cycled(i))
+        lines!(ax2, fs, phases; label, linewidth=2, color=Cycled(i))
+    end
+    lables_crit = labels .* " (critical)"
+    for (i, G, label) in zip(eachindex(Gs_crit), Gs_crit, lables_crit)
+        gains = map(s -> 20 * log10(abs(G(s))), jωs)
+        phases = rad2deg.(unwrap_rad(map(s -> angle(G(s)), jωs)))
+        lines!(ax1, fs, gains; label, linewidth=2, linestyle=:dash, color=Cycled(i))
+        lines!(ax2, fs, phases; label, linewidth=2, linestyle=:dash, color=Cycled(i))
+    end
+    axislegend(ax1)
+    fig
+end
+devices_bode_plot(s0, s0_crit)
+
+####
+#### Excursion: are we truly looking at invert interaction?
+####
+s0_gfl = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
+s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
+devices_bode_plot(s0_gfl, s0_gfl_crit, ["Generator Bus 1", "Generator Bus 2", "GFL Bus"])
+
+s0_gfm = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
+s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
+devices_bode_plot(s0_gfm, s0_gfm_crit, ["Generator Bus 1", "GFM Bus", "Generator Bus 2"])
