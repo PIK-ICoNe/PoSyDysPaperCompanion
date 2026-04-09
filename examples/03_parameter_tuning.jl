@@ -159,5 +159,5 @@ tuned_ev_data = OrderedDict(scale => s0 for (scale, s0) in zip(scales, tuned_s0s
 tracks_baseline = find_tracks(baseline_ev_data)
 tracks_tuned    = find_tracks(tuned_ev_data)
 
-plot_tracks(tracks_baseline, scales; title="Eigenvalues — baseline", xlims=(-20,5), ylims=(-40,40))
-plot_tracks(tracks_tuned,    scales; title="Eigenvalues — tuned")
+plot_tracks(tracks_baseline, scales; title="Eigenvalues — baseline", xlims=(-40,5), ylims=(-100,100))
+plot_tracks(tracks_tuned,    scales; title="Eigenvalues — tuned", xlims=(-40,5), ylims=(-100,100))

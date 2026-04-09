@@ -51,17 +51,17 @@ function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name
 end
 
 function get_gfm_bus(; name, vidx, pf=nothing)
-    @named gfl = ComposableInverter.DroopInverter(
+    @named gfm = ComposableInverter.DroopInverter(
         filter_type=:LCL,
         vsrc₊ω0 = 2π*60,
         droop₊ω0 = 2π*60,
     )
     @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
 
-    dynbus = compile_bus(MTKBus(gfl, shunt); name=name, vidx=vidx)
+    dynbus = compile_bus(MTKBus(gfm, shunt); name=name, vidx=vidx)
 
     initf = @initformula begin
-        :gfl₊droop₊Vset = sqrt(:busbar₊u_r^2 + :busbar₊u_i^2)
+        :gfm₊droop₊Vset = sqrt(:busbar₊u_r^2 + :busbar₊u_i^2)
     end
     add_initformula!(dynbus, initf)
 
