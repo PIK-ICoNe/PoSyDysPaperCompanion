@@ -557,6 +557,14 @@ show_participation_factors(s0_nom; modes=[cmode], threshold=0.05)
 @info "Participation factors near instability (Zscale=$scale_critical):"
 show_participation_factors(s0_crit; modes=idx_crit, threshold=0.05)
 
+open(joinpath(FIGPATH, "participation_factors.txt"), "w") do io
+    println(io, "=== Nominal grid strength (Zscale=1.0) ===")
+    show_participation_factors(io, s0_nom; modes=[cmode], threshold=0.05)
+    println(io)
+    println(io, "=== Near instability (Zscale=$scale_critical) ===")
+    show_participation_factors(io, s0_crit; modes=idx_crit, threshold=0.05)
+end
+
 #=
 ### Eigenvalue Sensitivity
 
@@ -587,6 +595,14 @@ show_eigenvalue_sensitivity(s0_nom, cmode; params=params_of_interest)
 
 @info "Eigenvalue sensitivities near instability (Zscale=$scale_critical):"
 show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
+
+open(joinpath(FIGPATH, "parameter_sensitivities.txt"), "w") do io
+    println(io, "=== Nominal grid strength (Zscale=1.0) ===")
+    show_eigenvalue_sensitivity(io, s0_nom, cmode; params=params_of_interest)
+    println(io)
+    println(io, "=== Near instability (Zscale=$scale_critical) ===")
+    show_eigenvalue_sensitivity(io, s0_crit, idx_crit; params=params_of_interest)
+end
 
 #=
 ## Gradient-Based Controller Optimization
@@ -690,6 +706,14 @@ near-optimal.
 for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
     pct = round(100 * (tuned - orig) / orig; digits=1)
     println("$sym\t$orig → $(round(tuned; sigdigits=4))\t($pct%)")
+end
+
+open(joinpath(FIGPATH, "tuned_parameters.txt"), "w") do io
+    println(io, "symbol\toriginal\ttuned\tchange")
+    for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
+        pct = round(100 * (tuned - orig) / orig; digits=1)
+        println(io, "$sym\t$orig\t$(round(tuned; sigdigits=4))\t$pct%")
+    end
 end
 
 #=
