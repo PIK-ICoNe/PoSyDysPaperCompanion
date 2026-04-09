@@ -1,37 +1,11 @@
 #=
-# Figure Export Specifications for IEEE Conference (IEEEtran, conference mode)
-#
-# COLUMN WIDTHS (from IEEEtran.cls, letter paper, 0.625 in margins, 0.25 in column sep)
-#   Single-column figure  →  \columnwidth = 3.5 in = 88.9 mm = 252 pt
-#   Double-column figure  →  \textwidth   = 7.25 in = 184.2 mm = 522 pt
-#
-# RECOMMENDED FORMAT
-#   Line art / plots  →  vector PDF (DPI-independent, preferred by IEEE)
-#   Photos / raster   →  PNG or TIFF, 300 DPI minimum (600 DPI for line art mixed with raster)
-#   Source: IEEEtran_HOWTO.pdf §Appendix B; IEEE Author Center submission guidelines
-#
-# CAIROMAKIE GUIDANCE
-#   Set figure sizes in pt to match LaTeX column widths exactly:
-#     Single-column:  Figure(size = (252, <height>))
-#     Double-column:  Figure(size = (522, <height>))
-#   Typical height choices (golden ratio): single ≈ 156 pt, double ≈ 323 pt
-#
-#   PDF export (vector, preferred):
-#     save("figures/myfig.pdf", fig; pt_per_unit = 1)
-#     → 1 Makie unit = 1 PDF point, so figure renders at exactly the right size in LaTeX
-#
-#   PNG export (raster fallback):
-#     save("figures/myfig.png", fig; px_per_unit = 4)   # ≈ 288 DPI  (300 DPI target)
-#     save("figures/myfig.png", fig; px_per_unit = 8)   # ≈ 576 DPI  (600 DPI target)
-#     px_per_unit multiplies the pt-based figure size: 252 pt × 8 = 2016 px wide
-=#
-
-#=
 # Differentiable Simulation for Power System Dynamics — Companion Script
 
 This script accompanies the PoSyDyS 2026 paper and demonstrates three analysis
 workflows enabled by the differentiable simulation framework PowerDynamics.jl:
-impedance extraction, eigenvalue sensitivity, and gradient-based controller optimization.
+eigenvalue analysis (instability under grid weakening), impedance extraction
+(Zqd resonance corroboration), participation factors and eigenvalue sensitivity
+(motivation for parameter selection), and gradient-based controller optimization.
 
 All analyses use the same model definition — a modified IEEE 9-bus system where
 generators at buses 2 and 3 are replaced by a grid-forming droop inverter and a
@@ -52,6 +26,128 @@ using LinearAlgebra
 using OrderedCollections: OrderedDict
 using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
 using Optimization, Optimisers, OptimizationOptimisers
+
+#=
+Figure Export Specifications for IEEE Conference (IEEEtran, conference mode)
+
+COLUMN WIDTHS (from IEEEtran.cls, letter paper, 0.625 in margins, 0.25 in column sep)
+  Single-column figure  →  \columnwidth = 3.5 in = 88.9 mm = 252 pt
+  Double-column figure  →  \textwidth   = 7.25 in = 184.2 mm = 522 pt
+
+RECOMMENDED FORMAT
+  Line art / plots  →  vector PDF (DPI-independent, preferred by IEEE)
+  Photos / raster   →  PNG or TIFF, 300 DPI minimum (600 DPI for line art mixed with raster)
+  Source: IEEEtran_HOWTO.pdf §Appendix B; IEEE Author Center submission guidelines
+
+CAIROMAKIE GUIDANCE
+  Set figure sizes in pt to match LaTeX column widths exactly:
+    Single-column:  Figure(size = (252, <height>))
+    Double-column:  Figure(size = (522, <height>))
+  Typical height choices (golden ratio): single ≈ 156 pt, double ≈ 323 pt
+
+  PDF export (vector, preferred):
+    save("figures/myfig.pdf", fig; pt_per_unit = 1)
+    → 1 Makie unit = 1 PDF point, so figure renders at exactly the right size in LaTeX
+
+  PNG export (raster fallback):
+    save("figures/myfig.png", fig; px_per_unit = 4)   # ≈ 288 DPI  (300 DPI target)
+    save("figures/myfig.png", fig; px_per_unit = 8)   # ≈ 576 DPI  (600 DPI target)
+    px_per_unit multiplies the pt-based figure size: 252 pt × 8 = 2016 px wide
+
+## Makie Themes for IEEE Conference Figures
+
+Two themes matching the IEEEtran column widths. Both use NewComputerModern fonts
+(via `theme_latexfonts()`) to match the LaTeX document fonts exactly.
+
+Usage:
+    with_theme(ieee_theme) do          # single-column (252 × 156 pt)
+        fig = Figure()                 # size comes from the theme
+        ...
+        save("fig.pdf", fig; pt_per_unit = 1)
+    end
+
+    with_theme(ieee_theme_wide) do     # double-column (522 × 323 pt)
+        ...
+    end
+
+Note: `Theme(Figure = (size = ...,))` works in current Makie but is not part of
+the official public API for Figure — if it ever breaks, fall back to passing
+`Figure(size = IEEE_SINGLE_COL_PT)` or `Figure(size = IEEE_DOUBLE_COL_PT)` explicitly.
+=#
+
+## Canonical figure dimensions in Makie pt units (1 pt = 1 CSS/PDF point)
+
+# define methods for "default" size or thime size
+theme_size() = theme_size(600, 400) # default size
+function theme_size(x, y)
+    if hasproperty(Makie.current_default_theme(), :Figure) && hasproperty(Makie.current_default_theme().Figure, :size)
+        Makie.current_default_theme().Figure.size
+    else
+        (x, y)
+    end
+end
+
+FIGPATH = joinpath(pkgdir(PoSyDysPaperCompanion), "paper", "figures")
+mkpath(FIGPATH)
+
+function base_theme()
+    merge(
+        theme_latexfonts(),
+        Theme(
+            fontsize       = 8,
+            figure_padding = 2,   # tight padding — LaTeX handles outer whitespace
+            palette        = (color = Makie.wong_colors(),),
+
+            Axis = (
+                spinewidth         = 0.5,
+                xtickwidth         = 0.5,
+                ytickwidth         = 0.5,
+                xticksize          = 3,
+                yticksize          = 3,
+                xticklabelsize     = 7,
+                yticklabelsize     = 7,
+                xlabelsize         = 8,
+                ylabelsize         = 8,
+                # titlesize          = 8,
+                # xgridvisible       = false,
+                # ygridvisible       = false,
+                # xminorticksvisible = true,
+                # yminorticksvisible = true,
+                # xminorticks        = IntervalsBetween(5),
+                # yminorticks        = IntervalsBetween(5),
+            ),
+
+            Legend = (
+                labelsize  = 7,
+                titlesize  = 8,
+                framewidth = 0.5,
+                padding    = (4f0, 4f0, 4f0, 4f0),
+                patchsize  = (14f0, 6f0),
+                rowgap     = 2,
+            ),
+
+            Lines    = (linewidth = 1.25,),
+            Scatter  = (markersize = 4,),
+
+            Colorbar = (
+                ticklabelsize = 7,
+                labelsize     = 8,
+                width         = 10,
+                spinewidth    = 0.5,
+            ),
+            rowgap = 4,
+            colgap = 4,
+        )
+    )
+end
+function ieee_theme(scale=1/sqrt(2))
+    w = 252 # \columwidth
+    merge(base_theme(), Theme(Figure = (size = (w, floor(Int, scale * w)),)))
+end
+function ieee_theme_wide(scale=1/sqrt(2))
+    w = 522 # \textwidth
+    merge(base_theme(), Theme(Figure = (size = (w, floor(Int, scale * w)),)))
+end
 
 #=
 ## The Test System
@@ -115,7 +211,7 @@ sol_emt, sol_mix = let
     solve(prob_emt, Rodas5P()), solve(prob_mix, Rodas5P())
 end;
 
-let fig = Figure(size=(800, 600))
+let fig = Figure(size=theme_size(800, 600))
     ts = range(-0.01, 1.0, length=1000)
 
     ax1 = Axis(fig[1, 1]; title="Voltage Magnitude — All-SG (EMT)",
@@ -146,10 +242,14 @@ function plot_load_step_comparison(scales; kwargs...)
     s0s = [load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=s, verbose=false)[2] for s in scales]
     sols = [solve(make_load_step_problem(s0; kwargs...), Rodas5P()) for s0 in s0s]
 
-    fig = Figure(size=(600, length(scales) * 250))
+    fig = Figure(size=theme_size(600, length(scales) * 250))
     for (row, (s, sol)) in enumerate(zip(scales, sols))
-        ax = Axis(fig[row, 1]; xlabel="Time [s]", ylabel="Voltage [pu]",
-            title="Zscale = $s")
+        ax = Axis(fig[row, 1]; ylabel="Voltage [pu]", title=L"$Z$ scale = %$s")
+        if row == length(s0s)
+            ax.xlabel = "Time [s]"
+        else
+            hidexdecorations!(ax; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+        end
         ts = refine_timeseries(sol.t)
         for i in [1, 2, 3]
             lines!(ax, ts, sol(ts, idxs=VIndex(i, :busbar₊u_mag)).u;
@@ -158,11 +258,17 @@ function plot_load_step_comparison(scales; kwargs...)
         xlims!(ax, -0.01, 0.5)
         row == 1 && axislegend(ax; position=:rb)
     end
-    fig, s0s, sols
+    fig
 end
 
-fig_weak, _, _ = plot_load_step_comparison([1.0, 1.5, 2.0])
-fig_weak
+plot_load_step_comparison([1.0, 1.5, 2.0])
+let
+    fig = with_theme(ieee_theme(1)) do
+        plot_load_step_comparison([1.0, 1.5, 2.0])
+    end
+    save(joinpath(FIGPATH, "01_load_step_scenarios.pdf"), fig)
+    fig
+end
 
 #=
 ## Eigenvalue Analysis: Impedance Sweep
@@ -230,17 +336,22 @@ Black crosses mark the baseline (Zscale = 1.0). We highlight two modes:
 
 function plot_tracks(tracks, key_vals;
         ax=nothing,
-        highlight_modes=Int[], xlims=nothing, ylims=nothing, title="Eigenvalues")
+        highlight_modes=Int[], xlims=nothing, ylims=nothing, title="Eigenvalues",
+        colorbar=true)
     log_keys = log.(key_vals)
-    max_log = maximum(abs.(log_keys))
-    norm_colors = iszero(max_log) ? zeros(length(key_vals)) : log_keys ./ max_log
+    pos_max = max(maximum(log_keys), 0.0)
+    neg_max = max(-minimum(log_keys), 0.0)
+    norm_colors = map(l -> l >= 0 ? (iszero(pos_max) ? 0.0 : l / pos_max)
+                                  : (iszero(neg_max) ? 0.0 : l / neg_max), log_keys)
     baseline_idx = argmin(abs.(key_vals .- 1.0))
 
     own_fig = isnothing(ax)
     if own_fig
-        fig = Figure(size=(600, 500))
+        fig = Figure(size=theme_size(600, 500))
         ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]", title)
     end
+
+    vspan!(ax, 0, 100; color=(:red, 0.07))
 
     for m in highlight_modes
         lines!(ax, real.(tracks[m, :]), imag.(tracks[m, :]);
@@ -248,7 +359,7 @@ function plot_tracks(tracks, key_vals;
             alpha=0.3,
             colorrange=(-1.0, 1.0),
             colormap=:bluesreds,
-            linewidth=8,
+            linewidth=6,
             joinstyle=:round,
             linecap=:round,
         )
@@ -258,25 +369,173 @@ function plot_tracks(tracks, key_vals;
             color=norm_colors,
             colorrange=(-1.0, 1.0),
             colormap=:bluesreds,
-            linewidth=3,
+            linewidth=2,
             joinstyle=:round,
             linecap=:round,
         )
     end
     scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
-        color=:black, markersize=6, marker=:xcross)
+        color=:black, markersize=4, marker=:xcross)
 
     !isnothing(xlims) && Makie.xlims!(ax, xlims...)
     !isnothing(ylims) && Makie.ylims!(ax, ylims...)
-    own_fig ? fig : ax
+
+    if own_fig
+        if colorbar && (pos_max > 0 || neg_max > 0)
+            kmin, kmax = minimum(key_vals), maximum(key_vals)
+            cb_low  = neg_max > 0 ? -1.0 : 0.0
+            cb_high = pos_max > 0 ?  1.0 : 0.0
+            cb_ticks = filter(t -> cb_low <= t[1] <= cb_high, [
+                (-1.0, string(kmin)), (0.0, "1.0"), (1.0, string(kmax))])
+            Colorbar(fig[1, 2]; colormap=:bluesreds, limits=(cb_low, cb_high),
+                ticks=(first.(cb_ticks), last.(cb_ticks)),
+                width=4, vertical=true)
+        end
+        return fig
+    end
+    ax
 end
+
+xlims_full = (-40, 5)
+xlims_zoom = (-5, 5/8)
+ylims_full = (-110, 110)
+ylims_zoom = (-5, 5)
 
 plot_tracks(tracks, scales_vec;
     highlight_modes=[54, 55],
-    xlims=(-40, 5),
-    ylims=(-120, 120),
-    title="Eigenvalue Trajectories vs Grid Strength"
+    xlims=xlims_full,
+    ylims=ylims_full,
+    title="Eigenvalue Paths under Varying Grid Strength"
 )
+let
+    fig = with_theme(ieee_theme()) do
+        plot_tracks(tracks, scales_vec;
+            highlight_modes=[54, 55],
+            xlims=xlims_full,
+            ylims=ylims_full,
+            title="Eigenvalue Paths under Varying Grid Strength"
+        )
+    end
+    save(joinpath(FIGPATH, "02_eigenvalue_paths.pdf"), fig)
+end
+
+## Identify the critical mode and the nominal / critical operating points used throughout
+cmode = 54
+s0_nom = eigenvalue_data[1.0]
+
+idx_last_stable = findlast(λ -> real(λ) < 0, tracks[cmode, :])
+scale_critical = scales_vec[idx_last_stable]
+s0_crit = eigenvalue_data[scale_critical]
+critical_mode = tracks[cmode, idx_last_stable]
+idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
+
+#=
+## Impedance Extraction via Linearization
+
+Using `linearize_network`, we extract the driving-point impedance at each bus by
+perturbing the bus current and observing the voltage response. The result is rotated
+into a local dq frame aligned with the steady-state voltage.
+=#
+
+function compute_Z_aligned(s0, bus_idx)
+    G = NetworkDynamics.linearize_network(s0;
+        in  = VIndex(bus_idx, [:busbar₊i_r, :busbar₊i_i]),
+        out = VIndex(bus_idx, [:busbar₊u_r, :busbar₊u_i]))
+
+    u_r = s0[VIndex(bus_idx, :busbar₊u_r)]
+    u_i = s0[VIndex(bus_idx, :busbar₊u_i)]
+    θ = atan(u_i, u_r)
+    R = [cos(θ) sin(θ); -sin(θ) cos(θ)]
+
+    B_rot = G.B * R'
+    C_rot = R * G.C
+    D_rot = R * G.D * R'
+
+    make = (col, col) -> NetworkDescriptorSystem(
+        A=G.A, B=B_rot[:, col], C=C_rot[row:row, :], D=D_rot[row:row, col:col],
+        insym=VIndex(bus_idx, :local), outsym=VIndex(bus_idx, :local))
+
+    (; Zdd=make(1,1), Zdq=make(1,2), Zqd=make(2,1), Zqq=make(2,2))
+end
+
+#=
+### Bode Plots: Nominal vs Critical Grid Strength
+
+The network is firmly inductive (R/X ≈ 0.12), so the dominant coupling channel is
+ΔP → Δδ, captured by Z_qd (q-voltage response to d-current perturbation). The sharp
+resonance peak at ~28 Hz (visible at critical Zscale) corresponds exactly to the
+eigenvalue mode that destabilizes. At nominal grid strength, the same mode is
+well-damped and barely visible.
+=#
+
+function plot_Zqd_bode(s0_a, s0_b; buses=[2,3],
+        labels=["GFM Bus", "GFL Bus"],
+        label_suffix=["nominal", "critical"])
+    fs = 10 .^ range(-1.5, 3.5; length=800)
+    jωs = 2π .* fs .* im
+
+    fig = Figure(size=theme_size(700, 500))
+    ax_g = Axis(fig[1, 1]; ylabel="Gain (dB)", xscale=log10, title=L"$Z_{qd}$ Bode Plot")
+
+    phaseticks = (-10:2:10)*π
+    phaselabels = [n==0 ? "0" : string(n) .* "π" for n in -10:2:10]
+    ax_p = Axis(fig[2, 1]; ylabel="Phase (rad)", xlabel="Frequency (Hz)", xscale=log10,
+        yticks=(phaseticks, phaselabels),
+    )
+
+    for (i, (bus, lab)) in enumerate(zip(buses, labels))
+        Za = compute_Z_aligned(s0_a, bus)
+        Zb = compute_Z_aligned(s0_b, bus)
+
+        lines!(ax_g, fs, [20log10(abs(Za.Zqd(s))) for s in jωs];
+            label="$lab ($(label_suffix[1]))", color=Cycled(i), alpha=0.6)
+        lines!(ax_g, fs, [20log10(abs(Zb.Zqd(s))) for s in jωs];
+            label="$lab ($(label_suffix[2]))", color=Cycled(i), linestyle=(:dash, :dense))
+
+        lines!(ax_p, fs, unwrap_rad([angle(Za.Zqd(s)) for s in jωs]);
+            label="$lab ($(label_suffix[1]))", color=Cycled(i), alpha=0.6)
+        lines!(ax_p, fs, unwrap_rad([angle(Zb.Zqd(s)) for s in jωs]);
+            label="$lab ($(label_suffix[2]))", color=Cycled(i), linestyle=(:dash, :dense))
+    end
+    xlims!(ax_p, extrema(fs))
+    xlims!(ax_g, extrema(fs))
+    axislegend(ax_p; position=:lb)
+    fig
+end
+
+plot_Zqd_bode(s0_nom, s0_crit)
+
+let
+    fig = with_theme(ieee_theme(3/4)) do
+        plot_Zqd_bode(s0_nom, s0_crit)
+    end
+    save(joinpath(FIGPATH, "03_Zqd_bode.pdf"), fig)
+    fig
+end
+
+#=
+### Cross-Validation: Is This Truly an Inverter-Inverter Interaction?
+
+We check whether the resonance appears with only one inverter present.
+It does not — confirming a coupled interaction between the GFM and GFL
+mediated by the network.
+=#
+
+let
+    s0_gfl_only = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
+    s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
+    plot_Zqd_bode(s0_gfl_only, s0_gfl_crit;
+        labels=["SG Bus 1", "SG Bus 2", "GFL Bus"],
+        label_suffix=["nominal (GFL only)", "critical (GFL only)"])
+end
+
+let
+    s0_gfm_only = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
+    s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
+    plot_Zqd_bode(s0_gfm_only, s0_gfm_crit;
+        labels=["SG Bus 1", "GFM Bus", "SG Bus 3"],
+        label_suffix=["nominal (GFM only)", "critical (GFM only)"])
+end
 
 #=
 ### Participation Factors
@@ -287,18 +546,8 @@ instability, the GFL's PLL angle enters the participation, revealing the mechani
 that drives destabilization.
 =#
 
-cmode = 54
-s0_nom = eigenvalue_data[1.0]
-
 @info "Participation factors at nominal grid strength (Zscale=1.0):"
 show_participation_factors(s0_nom; modes=[cmode], threshold=0.05)
-
-## Find the last stable Zscale for this mode
-idx_last_stable = findlast(λ -> real(λ) < 0, tracks[cmode, :])
-scale_critical = scales_vec[idx_last_stable]
-s0_crit = eigenvalue_data[scale_critical]
-critical_mode = tracks[cmode, idx_last_stable]
-idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
 
 @info "Participation factors near instability (Zscale=$scale_critical):"
 show_participation_factors(s0_crit; modes=idx_crit, threshold=0.05)
@@ -333,97 +582,6 @@ show_eigenvalue_sensitivity(s0_nom, cmode; params=params_of_interest)
 
 @info "Eigenvalue sensitivities near instability (Zscale=$scale_critical):"
 show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
-
-#=
-## Impedance Extraction via Linearization
-
-Using `linearize_network`, we extract the driving-point impedance at each bus by
-perturbing the bus current and observing the voltage response. The result is rotated
-into a local dq frame aligned with the steady-state voltage.
-=#
-
-function compute_Z_aligned(s0, bus_idx)
-    G = NetworkDynamics.linearize_network(s0;
-        in  = VIndex(bus_idx, [:busbar₊i_r, :busbar₊i_i]),
-        out = VIndex(bus_idx, [:busbar₊u_r, :busbar₊u_i]))
-
-    u_r = s0[VIndex(bus_idx, :busbar₊u_r)]
-    u_i = s0[VIndex(bus_idx, :busbar₊u_i)]
-    θ = atan(u_i, u_r)
-    R = [cos(θ) sin(θ); -sin(θ) cos(θ)]
-
-    B_rot = G.B * R'
-    C_rot = R * G.C
-    D_rot = R * G.D * R'
-
-    make = (row, col) -> NetworkDescriptorSystem(
-        A=G.A, B=B_rot[:, col], C=C_rot[row:row, :], D=D_rot[row:row, col:col],
-        insym=VIndex(bus_idx, :local), outsym=VIndex(bus_idx, :local))
-
-    (; Zdd=make(1,1), Zdq=make(1,2), Zqd=make(2,1), Zqq=make(2,2))
-end
-
-#=
-### Bode Plots: Nominal vs Critical Grid Strength
-
-The sharp resonance peak at ~28 Hz (visible at critical Zscale) corresponds exactly
-to the eigenvalue mode that destabilizes. At nominal grid strength, the same mode
-is well-damped and barely visible.
-=#
-
-function plot_Zdd_bode(s0_a, s0_b; buses=[1,2,3],
-        labels=["SG Bus", "GFM Bus", "GFL Bus"],
-        label_suffix=["nominal", "critical"])
-    fs = 10 .^ range(-2, 3; length=800)
-    jωs = 2π .* fs .* im
-
-    fig = Figure(size=(700, 500))
-    ax_g = Axis(fig[1, 1]; ylabel="Gain (dB)", xscale=log10, title="Z_dd Bode Plot")
-    ax_p = Axis(fig[2, 1]; ylabel="Phase (deg)", xlabel="Frequency (Hz)", xscale=log10)
-
-    for (i, (bus, lab)) in enumerate(zip(buses, labels))
-        Za = compute_Z_aligned(s0_a, bus)
-        Zb = compute_Z_aligned(s0_b, bus)
-
-        lines!(ax_g, fs, [20log10(abs(Za.Zdd(s))) for s in jωs];
-            label="$lab ($(label_suffix[1]))", color=Cycled(i), linewidth=2)
-        lines!(ax_g, fs, [20log10(abs(Zb.Zdd(s))) for s in jωs];
-            label="$lab ($(label_suffix[2]))", color=Cycled(i), linewidth=2, linestyle=:dash)
-
-        lines!(ax_p, fs, rad2deg.(unwrap_rad([angle(Za.Zdd(s)) for s in jωs]));
-            color=Cycled(i), linewidth=2)
-        lines!(ax_p, fs, rad2deg.(unwrap_rad([angle(Zb.Zdd(s)) for s in jωs]));
-            color=Cycled(i), linewidth=2, linestyle=:dash)
-    end
-    axislegend(ax_g; position=:rb)
-    fig
-end
-
-plot_Zdd_bode(s0_nom, s0_crit)
-
-#=
-### Cross-Validation: Is This Truly an Inverter-Inverter Interaction?
-
-We check whether the resonance appears with only one inverter present.
-It does not — confirming a coupled interaction between the GFM and GFL
-mediated by the network.
-=#
-
-let
-    s0_gfl_only = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
-    s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
-    plot_Zdd_bode(s0_gfl_only, s0_gfl_crit;
-        labels=["SG Bus 1", "SG Bus 2", "GFL Bus"],
-        label_suffix=["nominal (GFL only)", "critical (GFL only)"])
-end
-
-let
-    s0_gfm_only = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
-    s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
-    plot_Zdd_bode(s0_gfm_only, s0_gfm_crit;
-        labels=["SG Bus 1", "GFM Bus", "SG Bus 3"],
-        label_suffix=["nominal (GFM only)", "critical (GFM only)"])
-end
 
 #=
 ## Gradient-Based Controller Optimization
@@ -546,23 +704,29 @@ sols_optimized = let p_opt = optsol.u
     end
 end;
 
-function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8])
-    fig = Figure(size=(800, length(scales) * 250))
+function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8], labels=["GFM Bus", "GFL Bus", "Disturbed Load Bus"])
+    fig = Figure(size=theme_size(800, length(scales) * 250))
+    nrows = length(scales)
     for (row, (s, sb, sa)) in enumerate(zip(scales, sols_before, sols_after))
-        ax1 = Axis(fig[row, 1]; title="Zscale=$s — default",
-            xlabel="Time [s]", ylabel="V [pu]")
-        ax2 = Axis(fig[row, 2]; title="Zscale=$s — optimized",
-            xlabel="Time [s]", ylabel="V [pu]")
+        ax1 = Axis(fig[row, 1]; title=L"$Z$ scale=%$s — default", ylabel="V [pu]")
+        ax2 = Axis(fig[row, 2]; title=L"$Z$ scale=%$s — optimized", ylabel="V [pu]")
+        if row == nrows
+            ax1.xlabel = "Time [s]"
+            ax2.xlabel = "Time [s]"
+        else
+            hidexdecorations!(ax1; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+            hidexdecorations!(ax2; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+        end
         ts_b = refine_timeseries(sb.t)
         ts_a = refine_timeseries(sa.t)
-        for (j, bus) in enumerate(buses)
+        for (j, (bus, label)) in enumerate(zip(buses, labels))
             lines!(ax1, ts_b, sb(ts_b, idxs=VIndex(bus, :busbar₊u_mag)).u;
-                color=Cycled(j), label="Bus $bus")
+                color=Cycled(j), label)
             lines!(ax2, ts_a, sa(ts_a, idxs=VIndex(bus, :busbar₊u_mag)).u;
-                color=Cycled(j), label="Bus $bus")
+                color=Cycled(j), label)
         end
         xlms = (-0.01, 0.5)
-        ylms = (0.926, 1.045)
+        ylms = (0.929, 1.035)
         xlims!(ax1, xlms...); xlims!(ax2, xlms...)
         ylims!(ax1, ylms...); ylims!(ax2, ylms...)
         row == 1 && axislegend(ax1; position=:rb)
@@ -571,6 +735,14 @@ function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8])
 end
 
 plot_before_after(sols_default, sols_optimized, opt_scales)
+
+let
+    fig = with_theme(ieee_theme_wide(0.5)) do
+        plot_before_after(sols_default, sols_optimized, opt_scales)
+    end
+    save(joinpath(FIGPATH, "04_load_step_before_after.pdf"), fig)
+    fig
+end
 
 #=
 ### Before/After Comparison: Eigenvalue Trajectories
@@ -613,26 +785,27 @@ function compute_eig_tracks(popt;
     find_tracks(states), collect(keys(states))
 end
 
-xlims_full = (-40, 5)
-xlims_zoom = (-5, 5/8)
-ylims_full = (-110, 110)
-ylims_zoom = (-5, 5)
-
-let fig = Figure(size=(900, 650))
+let fig = Figure(size=theme_size(900, 650))
     tr_def, sv_def = compute_eig_tracks(p0_opt)
     tr_opt, sv_opt = compute_eig_tracks(optsol.u)
 
     ax1 = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Default Parameters")
     ax2 = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Optimized Parameters")
-    ax3 = Axis(fig[2, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
-    ax4 = Axis(fig[2, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
 
     plot_tracks(tr_def, sv_def; ax=ax1, xlims=xlims_full, ylims=ylims_full)
     plot_tracks(tr_opt, sv_opt; ax=ax2, xlims=xlims_full, ylims=ylims_full)
-    plot_tracks(tr_def, sv_def; ax=ax3, xlims=xlims_zoom, ylims=ylims_zoom)
-    plot_tracks(tr_opt, sv_opt; ax=ax4, xlims=xlims_zoom, ylims=ylims_zoom)
     fig
 end
+
+function plot_optimized_tracks(popt)
+    tr, sv = compute_eig_tracks(popt)
+    plot_tracks(tr, sv;
+        xlims=xlims_full,
+        ylims=ylims_full,
+        title="Optimized EV Paths under Varying Grid Strength"
+    )
+end
+plot_optimized_tracks(optsol.u)
 
 #=
 ### Validation: Previously Unstable Scenario
@@ -658,7 +831,7 @@ let
     sol_def = solve(prob_default, Rodas5P())
     sol_tun = solve(prob_tuned, Rodas5P())
 
-    fig = Figure(size=(800, 300))
+    fig = Figure(size=theme_size(800, 300))
     ax1 = Axis(fig[1, 1]; title="Zscale=$scale_def — default", xlabel="Time [s]", ylabel="V [pu]")
     ax2 = Axis(fig[1, 2]; title="Zscale=$scale_opt — optimized", xlabel="Time [s]", ylabel="V [pu]")
 
@@ -691,7 +864,7 @@ anim_frames = let N = length(opt_states)
     end
 end
 
-let fig = Figure(size=(900, 500))
+let fig = Figure(size=theme_size(900, 500))
     ax_full = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
     ax_zoom = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
     N = length(anim_frames)
@@ -715,7 +888,7 @@ time-domain oscillations as parameters evolve.
 =#
 
 let prob = opt_problems[3]  # Zscale=2.0
-    fig = Figure(size=(900, 500))
+    fig = Figure(size=theme_size(900, 500))
     ax_v   = Axis(fig[1, 1]; xlabel="Time [s]", ylabel="Voltage [pu]")
     ax_eig = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
     ts = range(0.0, 0.5; length=500)
