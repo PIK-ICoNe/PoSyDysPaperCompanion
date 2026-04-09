@@ -200,14 +200,19 @@ Black crosses mark the baseline (Zscale = 1.0). We highlight two modes:
 - **Mode 72**: SG electromechanical mode — also loses damping but is secondary
 =#
 
-function plot_tracks(tracks, key_vals; highlight_modes=Int[], xlims=nothing, ylims=nothing, title="Eigenvalues")
+function plot_tracks(tracks, key_vals;
+        ax=nothing,
+        highlight_modes=Int[], xlims=nothing, ylims=nothing, title="Eigenvalues")
     log_keys = log.(key_vals)
     max_log = maximum(abs.(log_keys))
     norm_colors = iszero(max_log) ? zeros(length(key_vals)) : log_keys ./ max_log
     baseline_idx = argmin(abs.(key_vals .- 1.0))
 
-    fig = Figure(size=(600, 500))
-    ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]", title)
+    own_fig = isnothing(ax)
+    if own_fig
+        fig = Figure(size=(600, 500))
+        ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]", title)
+    end
 
     for m in highlight_modes
         lines!(ax, real.(tracks[m, :]), imag.(tracks[m, :]);
@@ -235,7 +240,7 @@ function plot_tracks(tracks, key_vals; highlight_modes=Int[], xlims=nothing, yli
 
     !isnothing(xlims) && Makie.xlims!(ax, xlims...)
     !isnothing(ylims) && Makie.ylims!(ax, ylims...)
-    fig
+    own_fig ? fig : ax
 end
 
 plot_tracks(tracks, scales_vec;
@@ -550,48 +555,70 @@ function reinitialize_with_params(s0, tunable_p, p_new)
     initialize_from_pf!(nw; tol=1e-7, nwtol=1e-5, verbose=false)
 end
 
-let
-    baseline_data = OrderedDict(s => s0 for (s, s0) in zip(opt_scales, opt_s0s))
-    tuned_data = OrderedDict(s => reinitialize_with_params(s0, tunable_p, optsol.u)
-        for (s, s0) in zip(opt_scales, opt_s0s))
+## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
+eig_sweep_scales = range(1.0, 4.0; length=10)
+eig_sweep_s0s = [
+    load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=Float64(s), verbose=false)[2]
+    for s in eig_sweep_scales
+];
 
-    tracks_base = find_tracks(baseline_data)
-    tracks_tune = find_tracks(tuned_data)
+"""
+    compute_eig_tracks(popt; scales, base_s0s) -> (tracks, scales_vec)
 
-    fig = Figure(size=(900, 450))
-    for (col, (tr, lab)) in enumerate(zip([tracks_base, tracks_tune], ["Default", "Optimized"]))
-        ax = Axis(fig[1, col]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title=lab)
-        for i in axes(tr, 1)
-            lines!(ax, real.(tr[i, :]), imag.(tr[i, :]);
-                linewidth=2, color=(:gray, 0.5))
-        end
-        scatter!(ax, real.(tr[:, 1]), imag.(tr[:, 1]);
-            color=:blue, markersize=5, marker=:circle, label="Zscale=$(opt_scales[1])")
-        scatter!(ax, real.(tr[:, end]), imag.(tr[:, end]);
-            color=:red, markersize=5, marker=:circle, label="Zscale=$(opt_scales[end])")
-        Makie.xlims!(ax, -40, 5); Makie.ylims!(ax, -100, 100)
-        axislegend(ax; position=:lt)
+Reinitialize the mixed IEEE-9 system with controller parameters `popt` at each
+`Zscale` in `scales` and return the matched eigenvalue track matrix together with
+the corresponding scale vector. Separating computation from plotting lets callers
+draw the same tracks onto multiple axes without redundant reinitialization.
+"""
+function compute_eig_tracks(popt;
+        scales   = eig_sweep_scales,
+        base_s0s = eig_sweep_s0s)
+    states = OrderedDict{Float64, NWState}()
+    for (s, s0) in zip(scales, base_s0s)
+        states[Float64(s)] = reinitialize_with_params(s0, tunable_p, popt)
     end
+    find_tracks(states), collect(keys(states))
+end
+
+xlims_full = (-40, 5)
+xlims_zoom = (-5, 5/8)
+ylims_full = (-110, 110)
+ylims_zoom = (-5, 5)
+
+let fig = Figure(size=(900, 650))
+    tr_def, sv_def = compute_eig_tracks(p0_opt)
+    tr_opt, sv_opt = compute_eig_tracks(optsol.u)
+
+    ax1 = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Default Parameters")
+    ax2 = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Optimized Parameters")
+    ax3 = Axis(fig[2, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
+    ax4 = Axis(fig[2, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
+
+    plot_tracks(tr_def, sv_def; ax=ax1, xlims=xlims_full, ylims=ylims_full)
+    plot_tracks(tr_opt, sv_opt; ax=ax2, xlims=xlims_full, ylims=ylims_full)
+    plot_tracks(tr_def, sv_def; ax=ax3, xlims=xlims_zoom, ylims=ylims_zoom)
+    plot_tracks(tr_opt, sv_opt; ax=ax4, xlims=xlims_zoom, ylims=ylims_zoom)
     fig
 end
 
 #=
 ### Validation: Previously Unstable Scenario
 
-We test the optimized parameters at Zscale=3, which was unstable with default
+We test the optimized parameters at Zscale=2.25, which was unstable with default
 parameters. If the system is now stable, the optimization has extended the stability
 boundary.
 =#
 
 let
-    scale = 2.25
+    scale = 4.0
     s0_test = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale, verbose=false)[2]
     ΔG_factor=1.3
     tspan=(-1.0, 1.1)
 
     prob_default = make_load_step_problem(s0_test; ΔG_factor, tspan)
 
-    s0_tuned = reinitialize_with_params(s0_test, tunable_p, optsol.u)
+    # s0_tuned = reinitialize_with_params(s0_test, tunable_p, optsol.u)
+    s0_tuned = reinitialize_with_params(s0_test, tunable_p, slow_opt_states[end].u)
     prob_tuned = make_load_step_problem(s0_tuned; ΔG_factor, tspan)
 
     sol_def = solve(prob_default, Rodas5P())
@@ -612,3 +639,54 @@ let
     axislegend(ax1; position=:lt)
     fig
 end
+
+#=
+## Eigenvalue Evolution Animation
+
+To visualise how the eigenvalue trajectories shift *during* optimisation we run a
+second, slower descent (smaller learning rate, more iterations) and capture every
+gradient step. Starting from the default parameters, the animation shows each mode
+moving as the controller gains are tuned.
+=#
+
+slow_opt_states = let states = Any[]
+    optf = Optimization.OptimizationFunction((x, _) -> loss_fn(x), Optimization.AutoForwardDiff())
+    cb = (state, l) -> begin
+        push!(states, state)
+        is_best = all(s -> l < s.objective, states[1:end-1])
+        print("Iteration $(state.iter): loss = $l")
+        is_best && printstyled(" ✓"; color=:green)
+        println()
+        false
+    end
+    optprob = Optimization.OptimizationProblem(optf, p0_opt; callback=cb)
+    @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
+    best = Inf
+    filter(states) do s
+        s.objective < best ? (best = s.objective; true) : false
+    end
+end
+# we need loss of ~ 1.68e-5 for "proper" convergence
+
+slow_opt_states[end].u
+optsol.u
+
+let fig = Figure(size=(900, 500))
+    ax_full = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
+    ax_zoom = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
+    N = length(slow_opt_states)
+    record(fig, "eigenvalue_evolution.mp4", enumerate(slow_opt_states); framerate=10) do (i, s)
+        println("Generating frame $i/$N (iter $(s.iter))...")
+        empty!(ax_full); empty!(ax_zoom)
+        label = "iter $(s.iter), loss=$(round(s.objective; sigdigits=3))"
+        ax_full.title[] = label
+        ax_zoom.title[] = "$label (zoom)"
+        # tracks, sv = compute_eig_tracks(s.u; scales=[1.0,2.0,4.0])
+        tracks, sv = compute_eig_tracks(s.u)
+        plot_tracks(tracks, sv; ax=ax_full, xlims=xlims_full, ylims=ylims_full)
+        plot_tracks(tracks, sv; ax=ax_zoom, xlims=xlims_zoom, ylims=ylims_zoom)
+    end
+end
+
+
+nw, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=2.0, verbose=false)
