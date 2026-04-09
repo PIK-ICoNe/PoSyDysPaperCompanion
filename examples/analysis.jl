@@ -1,4 +1,32 @@
 #=
+# Figure Export Specifications for IEEE Conference (IEEEtran, conference mode)
+#
+# COLUMN WIDTHS (from IEEEtran.cls, letter paper, 0.625 in margins, 0.25 in column sep)
+#   Single-column figure  →  \columnwidth = 3.5 in = 88.9 mm = 252 pt
+#   Double-column figure  →  \textwidth   = 7.25 in = 184.2 mm = 522 pt
+#
+# RECOMMENDED FORMAT
+#   Line art / plots  →  vector PDF (DPI-independent, preferred by IEEE)
+#   Photos / raster   →  PNG or TIFF, 300 DPI minimum (600 DPI for line art mixed with raster)
+#   Source: IEEEtran_HOWTO.pdf §Appendix B; IEEE Author Center submission guidelines
+#
+# CAIROMAKIE GUIDANCE
+#   Set figure sizes in pt to match LaTeX column widths exactly:
+#     Single-column:  Figure(size = (252, <height>))
+#     Double-column:  Figure(size = (522, <height>))
+#   Typical height choices (golden ratio): single ≈ 156 pt, double ≈ 323 pt
+#
+#   PDF export (vector, preferred):
+#     save("figures/myfig.pdf", fig; pt_per_unit = 1)
+#     → 1 Makie unit = 1 PDF point, so figure renders at exactly the right size in LaTeX
+#
+#   PNG export (raster fallback):
+#     save("figures/myfig.png", fig; px_per_unit = 4)   # ≈ 288 DPI  (300 DPI target)
+#     save("figures/myfig.png", fig; px_per_unit = 8)   # ≈ 576 DPI  (600 DPI target)
+#     px_per_unit multiplies the pt-based figure size: 252 pt × 8 = 2016 px wide
+=#
+
+#=
 # Differentiable Simulation for Power System Dynamics — Companion Script
 
 This script accompanies the PoSyDyS 2026 paper and demonstrates three analysis
