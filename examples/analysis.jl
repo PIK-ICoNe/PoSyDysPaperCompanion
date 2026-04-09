@@ -337,12 +337,17 @@ Black crosses mark the baseline (Zscale = 1.0). We highlight two modes:
 function plot_tracks(tracks, key_vals;
         ax=nothing,
         highlight_modes=Int[], xlims=nothing, ylims=nothing, title="Eigenvalues",
-        colorbar=true)
+        colorbar=true, faint=false)
     log_keys = log.(key_vals)
     pos_max = max(maximum(log_keys), 0.0)
     neg_max = max(-minimum(log_keys), 0.0)
     norm_colors = map(l -> l >= 0 ? (iszero(pos_max) ? 0.0 : l / pos_max)
                                   : (iszero(neg_max) ? 0.0 : l / neg_max), log_keys)
+    color_low = neg_max > 0 ? -1.0 : 0.0
+    faintscheme = Makie.ColorScheme([colorant"darkgray", colorant"gray95", colorant"darkgray"])
+    basecmap = faint ? faintscheme : :bluesreds
+    pos_only_cmap = Makie.resample_cmap(basecmap, 256)[129:end]
+    track_cmap = neg_max > 0 ? basecmap : pos_only_cmap
     baseline_idx = argmin(abs.(key_vals .- 1.0))
 
     own_fig = isnothing(ax)
@@ -351,31 +356,31 @@ function plot_tracks(tracks, key_vals;
         ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]", title)
     end
 
-    vspan!(ax, 0, 100; color=(:red, 0.07))
+    faint || vspan!(ax, 0, 100; color=(:red, 0.07))
 
     for m in highlight_modes
         lines!(ax, real.(tracks[m, :]), imag.(tracks[m, :]);
             color=:yellow,
             alpha=0.3,
-            colorrange=(-1.0, 1.0),
-            colormap=:bluesreds,
             linewidth=6,
             joinstyle=:round,
             linecap=:round,
         )
     end
+
     for i in axes(tracks, 1)
         lines!(ax, real.(tracks[i, :]), imag.(tracks[i, :]);
             color=norm_colors,
-            colorrange=(-1.0, 1.0),
-            colormap=:bluesreds,
+            colorrange=(color_low, 1.0),
+            colormap=track_cmap,
             linewidth=2,
             joinstyle=:round,
             linecap=:round,
         )
     end
     scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
-        color=:black, markersize=4, marker=:xcross)
+        color=faint ? :darkgray : :black,
+        markersize=4, marker=:xcross)
 
     !isnothing(xlims) && Makie.xlims!(ax, xlims...)
     !isnothing(ylims) && Makie.ylims!(ax, ylims...)
@@ -387,7 +392,7 @@ function plot_tracks(tracks, key_vals;
             cb_high = pos_max > 0 ?  1.0 : 0.0
             cb_ticks = filter(t -> cb_low <= t[1] <= cb_high, [
                 (-1.0, string(kmin)), (0.0, "1.0"), (1.0, string(kmax))])
-            Colorbar(fig[1, 2]; colormap=:bluesreds, limits=(cb_low, cb_high),
+            Colorbar(fig[1, 2]; colormap=track_cmap, colorrange=(cb_low, cb_high),
                 ticks=(first.(cb_ticks), last.(cb_ticks)),
                 width=4, vertical=true)
         end
@@ -451,7 +456,7 @@ function compute_Z_aligned(s0, bus_idx)
     C_rot = R * G.C
     D_rot = R * G.D * R'
 
-    make = (col, col) -> NetworkDescriptorSystem(
+    make = (row, col) -> NetworkDescriptorSystem(
         A=G.A, B=B_rot[:, col], C=C_rot[row:row, :], D=D_rot[row:row, col:col],
         insym=VIndex(bus_idx, :local), outsym=VIndex(bus_idx, :local))
 
@@ -563,7 +568,7 @@ nominal and weak-grid conditions.
 params_of_interest = let
     candidates = vidxs(s0_nom, 2:3, s=false, p=true, in=false, out=false, obs=false)
     # we are only interested in control parameters, so we filter for "filter" states
-    filter!(params_of_interest) do idx
+    filter!(candidates) do idx
         name = string(idx.subidx)
         !(
             contains(name, "connected") || # drop topology parameter
@@ -784,28 +789,36 @@ function compute_eig_tracks(popt;
     end
     find_tracks(states), collect(keys(states))
 end
+tracks_default = compute_eig_tracks(p0_opt)
+tracks_optimized = compute_eig_tracks(optsol.u)
 
-let fig = Figure(size=theme_size(900, 650))
-    tr_def, sv_def = compute_eig_tracks(p0_opt)
-    tr_opt, sv_opt = compute_eig_tracks(optsol.u)
+function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt))
+    # filter default tracks to scales > 1 to match the optimized sweep range
+    mask = sv_def .> 1.0
 
-    ax1 = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Default Parameters")
-    ax2 = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]", title="Optimized Parameters")
+    fig = Figure(size=theme_size(600, 500))
+    ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]",
+        title="Eigenvalue Paths under Varying Grid Strength")
 
-    plot_tracks(tr_def, sv_def; ax=ax1, xlims=xlims_full, ylims=ylims_full)
-    plot_tracks(tr_opt, sv_opt; ax=ax2, xlims=xlims_full, ylims=ylims_full)
+    plot_tracks(tr_def[:, mask], sv_def[mask]; ax, faint=true)
+    plot_tracks(tr_opt, sv_opt; ax, xlims=xlims_full, ylims=ylims_full, colorbar=false)
+
+    log_keys = log.(sv_opt)
+    pos_max = max(maximum(log_keys), 0.0)
+    neg_max = max(-minimum(log_keys), 0.0)
+    kmin, kmax = minimum(sv_opt), maximum(sv_opt)
+    cb_low  = neg_max > 0 ? -1.0 : 0.0
+    cb_high = pos_max > 0 ?  1.0 : 0.0
+    cb_ticks = filter(t -> cb_low <= t[1] <= cb_high, [
+        (-1.0, string(kmin)), (0.0, "1.0"), (1.0, string(kmax))])
+    pos_only_cmap = Makie.resample_cmap(:bluesreds, 256)[129:end]
+    cb_cmap = neg_max > 0 ? :bluesreds : pos_only_cmap
+    Colorbar(fig[1, 2]; colormap=cb_cmap, colorrange=(cb_low, cb_high),
+        ticks=(first.(cb_ticks), last.(cb_ticks)),
+        label="Scale", width=4, vertical=true)
     fig
 end
-
-function plot_optimized_tracks(popt)
-    tr, sv = compute_eig_tracks(popt)
-    plot_tracks(tr, sv;
-        xlims=xlims_full,
-        ylims=ylims_full,
-        title="Optimized EV Paths under Varying Grid Strength"
-    )
-end
-plot_optimized_tracks(optsol.u)
+plot_optimized_tracks(tracks_default, tracks_optimized)
 
 #=
 ### Validation: Previously Unstable Scenario
