@@ -178,7 +178,7 @@ function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
     vertexfs = [bus1, bus2, bus3, bus4, bus5, bus6, bus7, bus8, bus9]
 
     nw = Network(vertexfs, linemodels; warn_order=false)
-    s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, subverbose=false, verbose)
+    s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, subverbose=false, verbose, warn=false)
     nw, s0
 end
 

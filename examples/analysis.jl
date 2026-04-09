@@ -463,14 +463,14 @@ loss_fn, p0_opt = generate_loss(opt_problems, tpidx);
 #=
 ### Run Optimization
 
-Adam optimizer with learning rate 5e-2. Convergence is fast thanks to accurate
-AD gradients — typically ~10 iterations suffice.
+Adam optimizer with learning rate 5e-3 for 100 iterations. The slower descent
+gives better convergence and also produces smooth eigenvalue trajectory frames for
+the animation below.
 =#
 
-optsol = let
+optsol, opt_states = let states = Any[]
     optf = Optimization.OptimizationFunction((x, _) -> loss_fn(x), Optimization.AutoForwardDiff())
-    states = Any[]
-    callback = function (state, l)
+    cb = (state, l) -> begin
         push!(states, state)
         is_best = all(s -> l < s.objective, states[1:end-1])
         print("Iteration $(state.iter): loss = $l")
@@ -478,8 +478,13 @@ optsol = let
         println()
         false
     end
-    optprob = Optimization.OptimizationProblem(optf, p0_opt; callback)
-    @time Optimization.solve(optprob, Optimisers.Adam(5e-2); maxiters=10)
+    optprob = Optimization.OptimizationProblem(optf, p0_opt; callback=cb)
+    sol = @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
+    best = Inf
+    frames = filter(states) do s
+        s.objective < best ? (best = s.objective; true) : false
+    end
+    sol, frames
 end
 
 #=
@@ -529,7 +534,7 @@ function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8])
                 color=Cycled(j), label="Bus $bus")
         end
         xlms = (-0.01, 0.5)
-        ylms = (0.935, 1.045)
+        ylms = (0.926, 1.045)
         xlims!(ax1, xlms...); xlims!(ax2, xlms...)
         ylims!(ax1, ylms...); ylims!(ax2, ylms...)
         row == 1 && axislegend(ax1; position=:rb)
@@ -552,7 +557,7 @@ function reinitialize_with_params(s0, tunable_p, p_new)
     for (pidx, p) in zip(tunable_p, p_new)
         set_default!(nw[VIndex(pidx.compidx)], pidx.subidx, p)
     end
-    initialize_from_pf!(nw; tol=1e-7, nwtol=1e-5, verbose=false)
+    initialize_from_pf!(nw; tol=1e-7, nwtol=1e-5, verbose=false, warn=false)
 end
 
 ## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
@@ -610,23 +615,24 @@ boundary.
 =#
 
 let
-    scale = 4.0
-    s0_test = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale, verbose=false)[2]
+    scale_def = 2.25
+    scale_opt = 4.0
     ΔG_factor=1.3
     tspan=(-1.0, 1.1)
 
+    s0_test = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_def, verbose=false)[2]
     prob_default = make_load_step_problem(s0_test; ΔG_factor, tspan)
 
-    # s0_tuned = reinitialize_with_params(s0_test, tunable_p, optsol.u)
-    s0_tuned = reinitialize_with_params(s0_test, tunable_p, slow_opt_states[end].u)
+    s0_test_opt = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_opt, verbose=false)[2]
+    s0_tuned = reinitialize_with_params(s0_test_opt, tunable_p, optsol.u)
     prob_tuned = make_load_step_problem(s0_tuned; ΔG_factor, tspan)
 
     sol_def = solve(prob_default, Rodas5P())
     sol_tun = solve(prob_tuned, Rodas5P())
 
     fig = Figure(size=(800, 300))
-    ax1 = Axis(fig[1, 1]; title="Zscale=$scale — default", xlabel="Time [s]", ylabel="V [pu]")
-    ax2 = Axis(fig[1, 2]; title="Zscale=$scale — optimized", xlabel="Time [s]", ylabel="V [pu]")
+    ax1 = Axis(fig[1, 1]; title="Zscale=$scale_def — default", xlabel="Time [s]", ylabel="V [pu]")
+    ax2 = Axis(fig[1, 2]; title="Zscale=$scale_opt — optimized", xlabel="Time [s]", ylabel="V [pu]")
 
     for (ax, sol) in [(ax1, sol_def), (ax2, sol_tun)]
         ts = refine_timeseries(sol.t)
@@ -643,50 +649,67 @@ end
 #=
 ## Eigenvalue Evolution Animation
 
-To visualise how the eigenvalue trajectories shift *during* optimisation we run a
-second, slower descent (smaller learning rate, more iterations) and capture every
-gradient step. Starting from the default parameters, the animation shows each mode
-moving as the controller gains are tuned.
+Replay the optimisation trajectory: each frame corresponds to an improving iterate
+captured in `opt_states` (strictly monotone in loss), so the animation shows only
+the successful descent.
 =#
 
-slow_opt_states = let states = Any[]
-    optf = Optimization.OptimizationFunction((x, _) -> loss_fn(x), Optimization.AutoForwardDiff())
-    cb = (state, l) -> begin
-        push!(states, state)
-        is_best = all(s -> l < s.objective, states[1:end-1])
-        print("Iteration $(state.iter): loss = $l")
-        is_best && printstyled(" ✓"; color=:green)
-        println()
-        false
-    end
-    optprob = Optimization.OptimizationProblem(optf, p0_opt; callback=cb)
-    @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
-    best = Inf
-    filter(states) do s
-        s.objective < best ? (best = s.objective; true) : false
+## Pre-compute tracks for every animation frame — expensive, done once.
+anim_frames = let N = length(opt_states)
+    map(enumerate(opt_states)) do (i, s)
+        println("Computing tracks $i/$N (iter $(s.iter))...")
+        tracks, sv = compute_eig_tracks(s.u)
+        (; s, tracks, sv)
     end
 end
-# we need loss of ~ 1.68e-5 for "proper" convergence
-
-slow_opt_states[end].u
-optsol.u
 
 let fig = Figure(size=(900, 500))
     ax_full = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
     ax_zoom = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
-    N = length(slow_opt_states)
-    record(fig, "eigenvalue_evolution.mp4", enumerate(slow_opt_states); framerate=10) do (i, s)
-        println("Generating frame $i/$N (iter $(s.iter))...")
+    N = length(anim_frames)
+    record(fig, "eigenvalue_evolution.mp4", enumerate(anim_frames); framerate=10) do (i, f)
+        println("Rendering frame $i/$N...")
         empty!(ax_full); empty!(ax_zoom)
-        label = "iter $(s.iter), loss=$(round(s.objective; sigdigits=3))"
+        label = "iter $(f.s.iter), loss=$(round(f.s.objective; sigdigits=3))"
         ax_full.title[] = label
         ax_zoom.title[] = "$label (zoom)"
-        # tracks, sv = compute_eig_tracks(s.u; scales=[1.0,2.0,4.0])
-        tracks, sv = compute_eig_tracks(s.u)
-        plot_tracks(tracks, sv; ax=ax_full, xlims=xlims_full, ylims=ylims_full)
-        plot_tracks(tracks, sv; ax=ax_zoom, xlims=xlims_zoom, ylims=ylims_zoom)
+        plot_tracks(f.tracks, f.sv; ax=ax_full, xlims=xlims_full, ylims=ylims_full)
+        plot_tracks(f.tracks, f.sv; ax=ax_zoom, xlims=xlims_zoom, ylims=ylims_zoom)
     end
 end
 
+#=
+### Animation 2: Voltage Response + Eigenvalue Tracks (Zscale=2.0)
 
-nw, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=2.0, verbose=false)
+LHS shows the load-step voltage response at the most challenging training scenario
+(Zscale=2.0); RHS shows the eigenvalue tracks — linking mode damping to the
+time-domain oscillations as parameters evolve.
+=#
+
+let prob = opt_problems[3]  # Zscale=2.0
+    fig = Figure(size=(900, 500))
+    ax_v   = Axis(fig[1, 1]; xlabel="Time [s]", ylabel="Voltage [pu]")
+    ax_eig = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
+    ts = range(0.0, 0.5; length=500)
+    N = length(anim_frames)
+    record(fig, "voltage_eigenvalue_evolution.mp4", enumerate(anim_frames); framerate=10) do (i, f)
+        println("Rendering frame $i/$N...")
+        empty!(ax_v); empty!(ax_eig)
+        label = "iter $(f.s.iter), loss=$(round(f.s.objective; sigdigits=3))"
+        ax_v.title[]   = "Zscale=2.0 — $label"
+        ax_eig.title[] = label
+        p_new = copy(prob.p)
+        p_new[tpidx] .= f.s.u
+        sol = solve(prob, Rodas5P(); p=p_new)
+        for (j, bus) in enumerate([2, 3, 8])
+            lines!(ax_v, ts, sol(ts; idxs=VIndex(bus, :busbar₊u_mag)).u;
+                color=Cycled(j), label="Bus $bus")
+        end
+        xlms = (-0.01, 0.5)
+        ylms = (0.926, 1.045)
+        xlims!(ax_v, xlms...)
+        ylims!(ax_v, ylms...)
+        i == 1 && axislegend(ax_v; position=:rb)
+        plot_tracks(f.tracks, f.sv; ax=ax_eig, xlims=xlims_full, ylims=ylims_full)
+    end
+end
