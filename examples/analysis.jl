@@ -239,7 +239,7 @@ resonance mode loses damping.
 =#
 
 function plot_load_step_comparison(scales; kwargs...)
-    s0s = [load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=s, verbose=false)[2] for s in scales]
+    s0s = [rebuild_with_scale(s0_mix, s)[2] for s in scales]
     sols = [solve(make_load_step_problem(s0; kwargs...), Rodas5P()) for s0 in s0s]
 
     fig = Figure(size=theme_size(600, length(scales) * 250))
@@ -316,7 +316,7 @@ scales_sweep = sort!(unique!(vcat(
 
 eigenvalue_data = let d = OrderedDict{Float64, NWState}()
     for Zscale in scales_sweep
-        _, s0 = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale, verbose=false)
+        _, s0 = rebuild_with_scale(s0_mix, Zscale)
         d[Zscale] = s0
     end
     d
@@ -373,7 +373,7 @@ function plot_tracks(tracks, key_vals;
             color=norm_colors,
             colorrange=(color_low, 1.0),
             colormap=track_cmap,
-            linewidth=2,
+            linewidth= faint ? 1 : 2,
             joinstyle=:round,
             linecap=:round,
         )
@@ -381,6 +381,7 @@ function plot_tracks(tracks, key_vals;
     scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
         color=faint ? :darkgray : :black,
         markersize=4, marker=:xcross)
+    # text!(ax, map(s -> (real(s), imag(s)), tracks[:, baseline_idx]); text=repr.(1:length(tracks[:, 1])), color=:black, fontsize=6)
 
     !isnothing(xlims) && Makie.xlims!(ax, xlims...)
     !isnothing(ylims) && Makie.ylims!(ax, ylims...)
@@ -401,9 +402,9 @@ function plot_tracks(tracks, key_vals;
     ax
 end
 
-xlims_full = (-40, 5)
-xlims_zoom = (-5, 5/8)
+xlims_full = (-50, 5)
 ylims_full = (-110, 110)
+xlims_zoom = (-5, 5/10)
 ylims_zoom = (-5, 5)
 
 plot_tracks(tracks, scales_vec;
@@ -791,10 +792,7 @@ end
 
 ## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
 eig_sweep_scales = range(1.0, 4.0; length=25)
-eig_sweep_s0s = [
-    load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=Float64(s), verbose=false)[2]
-    for s in eig_sweep_scales
-];
+eig_sweep_s0s = [rebuild_with_scale(s0_mix, Float64(s))[2] for s in eig_sweep_scales];
 
 """
     compute_eig_tracks(popt; scales, base_s0s) -> (tracks, scales_vec)
@@ -816,16 +814,44 @@ end
 tracks_default = compute_eig_tracks(p0_opt)
 tracks_optimized = compute_eig_tracks(optsol.u)
 
-function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt))
+function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt);
+        ev_pairs=Pair{Int,Int}[], ev_pair_gap=0.02)
     # filter default tracks to scales > 1 to match the optimized sweep range
-    mask = sv_def .> 1.0
+    mask = sv_def .>= 1.0
 
     fig = Figure(size=theme_size(600, 500))
     ax = Axis(fig[1, 1]; xlabel="Real Part [Hz]", ylabel="Imaginary Part [Hz]",
-        title="Eigenvalue Paths under Varying Grid Strength")
+        title="Optimized EV Paths under Varying Grid Strength",
+    )
 
     plot_tracks(tr_def[:, mask], sv_def[mask]; ax, faint=true)
     plot_tracks(tr_opt, sv_opt; ax, xlims=xlims_full, ylims=ylims_full, colorbar=false)
+
+    if !isempty(ev_pairs)
+        baseline_def = argmin(abs.(sv_def .- 1.0))
+        baseline_opt = argmin(abs.(sv_opt .- 1.0))
+        # compute gap in axis-normalized space so it is visually uniform
+        # despite the very different x/y data ranges
+        Δx = xlims_full[2] - xlims_full[1]
+        Δy = ylims_full[2] - ylims_full[1]
+        for (i_old, i_new) in ev_pairs
+            old_ev = tr_def[i_old, baseline_def]
+            new_ev = tr_opt[i_new, baseline_opt]
+            diff = new_ev - old_ev
+            # direction in normalized coords, then scale back to data coords
+            dir_n = complex(real(diff)/Δx, imag(diff)/Δy)
+            dir_n /= abs(dir_n)
+            offset = complex(ev_pair_gap * real(dir_n) * Δx, ev_pair_gap * imag(dir_n) * Δy)
+            start_ev = old_ev + offset
+            end_ev   = new_ev - offset
+            for sign in (+1, -1)
+                arrows2d!(ax,
+                    [(real(start_ev), sign * imag(start_ev))],
+                    [(real(end_ev),   sign * imag(end_ev))];
+                    argmode=:endpoint, shaftwidth=1, tiplength=3, tipwidth=3)
+            end
+        end
+    end
 
     log_keys = log.(sv_opt)
     pos_max = max(maximum(log_keys), 0.0)
@@ -839,10 +865,24 @@ function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt))
     cb_cmap = neg_max > 0 ? :bluesreds : pos_only_cmap
     Colorbar(fig[1, 2]; colormap=cb_cmap, colorrange=(cb_low, cb_high),
         ticks=(first.(cb_ticks), last.(cb_ticks)),
-        label="Scale", width=4, vertical=true)
+        width=4, vertical=true)
     fig
 end
 plot_optimized_tracks(tracks_default, tracks_optimized)
+
+let
+    fig = with_theme(ieee_theme(4/5)) do
+        plot_optimized_tracks(tracks_default, tracks_optimized;
+            ev_pairs = [
+                55 => 54,
+                # 53 => 46,
+                43 => 28,
+            ]
+        )
+    end
+    save(joinpath(FIGPATH, "05_eigenvalue_tracks_before_after.pdf"), fig)
+    fig
+end
 
 #=
 ### Validation: Previously Unstable Scenario
@@ -852,7 +892,7 @@ parameters. If the system is now stable, the optimization has extended the stabi
 boundary.
 =#
 
-let
+function plot_strong_disturbance()
     scale_def = 2.25
     scale_opt = 4.0
     ΔG_factor=1.3
@@ -869,8 +909,8 @@ let
     sol_tun = solve(prob_tuned, Rodas5P())
 
     fig = Figure(size=theme_size(800, 300))
-    ax1 = Axis(fig[1, 1]; title="Zscale=$scale_def — default", xlabel="Time [s]", ylabel="V [pu]")
-    ax2 = Axis(fig[1, 2]; title="Zscale=$scale_opt — optimized", xlabel="Time [s]", ylabel="V [pu]")
+    ax1 = Axis(fig[1, 1]; title=L"$Z$ scale=%$scale_def (default parameters)", ylabel="V [pu]")
+    ax2 = Axis(fig[2, 1]; title=L"$Z$ scale=%$scale_opt (optimized parameters)", xlabel="Time [s]", ylabel="V [pu]")
 
     for (ax, sol) in [(ax1, sol_def), (ax2, sol_tun)]
         ts = refine_timeseries(sol.t)
@@ -878,10 +918,17 @@ let
             lines!(ax, ts, sol(ts, idxs=VIndex(bus, :busbar₊u_mag)).u;
                 color=Cycled(j), label="Bus $bus")
         end
-        xlims!(ax, -0.01, sol.t[end])
+        xlims!(ax, -0.1, sol.t[end])
     end
-    axislegend(ax1; position=:lt)
+    axislegend(ax2; position=:rb)
     fig
+end
+
+let
+    fig = with_theme(ieee_theme(3/4)) do
+        plot_strong_disturbance()
+    end
+    save(joinpath(FIGPATH, "06_strong_disturbance_response.pdf"), fig)
 end
 
 #=
@@ -901,21 +948,6 @@ anim_frames = let N = length(opt_states)
     end
 end
 
-let fig = Figure(size=theme_size(900, 500))
-    ax_full = Axis(fig[1, 1]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
-    ax_zoom = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
-    N = length(anim_frames)
-    record(fig, "eigenvalue_evolution.mp4", enumerate(anim_frames); framerate=10) do (i, f)
-        println("Rendering frame $i/$N...")
-        empty!(ax_full); empty!(ax_zoom)
-        label = "iter $(f.s.iter), loss=$(round(f.s.objective; sigdigits=3))"
-        ax_full.title[] = label
-        ax_zoom.title[] = "$label (zoom)"
-        plot_tracks(f.tracks, f.sv; ax=ax_full, xlims=xlims_full, ylims=ylims_full)
-        plot_tracks(f.tracks, f.sv; ax=ax_zoom, xlims=xlims_zoom, ylims=ylims_zoom)
-    end
-end
-
 #=
 ### Animation 2: Voltage Response + Eigenvalue Tracks (Zscale=2.0)
 
@@ -931,7 +963,7 @@ let prob = opt_problems[3]  # Zscale=2.0
     ts = range(0.0, 0.5; length=500)
     N = length(anim_frames)
     record(fig, "voltage_eigenvalue_evolution.mp4", enumerate(anim_frames); framerate=10) do (i, f)
-        println("Rendering frame $i/$N...")
+        Base.isinteractive() && println("Rendering frame $i/$N...")
         empty!(ax_v); empty!(ax_eig)
         label = "iter $(f.s.iter), loss=$(round(f.s.objective; sigdigits=3))"
         ax_v.title[]   = "Zscale=2.0 — $label"

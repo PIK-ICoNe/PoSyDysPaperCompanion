@@ -7,6 +7,7 @@ using CSV: CSV
 using DataFrames: DataFrame
 
 export get_machine_bus, get_RL_line, get_load_bus, get_junction_bus, load_ieee9bus_emt, load_ieee9bus
+export rebuild_with_scale
 
 include("models.jl")
 
@@ -117,7 +118,7 @@ function get_junction_bus(; B, name, vidx)
 end
 
 
-function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
+LINEP = let
     # line parameters
     linedat = """
     src | dst | R      | X      | B
@@ -132,24 +133,31 @@ function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
       3 |   9 |      0 | 0.0586 |      0
     """
 
-    linep = CSV.read(IOBuffer(linedat), stripwhitespace=true, delim='|', DataFrame)
+    CSV.read(IOBuffer(linedat), stripwhitespace=true, delim='|', DataFrame)
+end
 
-    # since we do EMT modeling, we aggregate the B shunts at the vertices
-    Bbus = map(1:9) do i
-        (sum(linep.B[linep.src .== i]) + sum(linep.B[linep.dst .== i])) / 2
-    end
-    @assert all(iszero, Bbus[1:3]) && !any(iszero, Bbus[4:9]) # no shunts at genenerator buses but everywhere else
-
+function get_linemodels(scale)
     # generate pure RL lines
-    linemodels = map(eachrow(linep)) do row
+    linemodels = map(eachrow(LINEP)) do row
         m = if iszero(row.R) # transformer
             get_RL_line(; R=row.R, X=row.X, src=row.src, dst=row.dst, name=Symbol("t$(row.src)_$(row.dst)"))
         else # pi line
-            get_RL_line(; R=Zscale*row.R, X=Zscale*row.X, src=row.src, dst=row.dst, name=Symbol("l$(row.src)_$(row.dst)"))
+            get_RL_line(; R=scale*row.R, X=scale*row.X, src=row.src, dst=row.dst, name=Symbol("l$(row.src)_$(row.dst)"))
         end
         m.metadata[:B] = row.B # store the B value as metadata
         m
     end
+end
+
+function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
+    # since we do EMT modeling, we aggregate the B shunts at the vertices
+    Bbus = map(1:9) do i
+        (sum(LINEP.B[LINEP.src .== i]) + sum(LINEP.B[LINEP.dst .== i])) / 2
+    end
+    @assert all(iszero, Bbus[1:3]) && !any(iszero, Bbus[4:9]) # no shunts at genenerator buses but everywhere else
+
+    # generate pure RL lines
+    linemodels = get_linemodels(Zscale)
 
     gen1p = (;X_ls=0.01460, X_d=0.1460, X′_d=0.0608, X″_d=0.06, X_q=0.1000, X′_q=0.0969, X″_q=0.06, T′_d0=8.96, T′_q0=0.310, H=23.64)
     @named bus1 = get_machine_bus(; machine_p=gen1p, pf=pfSlack(V=1.04), vidx=1)
@@ -179,6 +187,29 @@ function load_ieee9bus_emt(; gfm = false, gfl = false, Zscale=1, verbose=true)
 
     nw = Network(vertexfs, linemodels; warn_order=false)
     s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, subverbose=false, verbose, warn=false)
+    nw, s0
+end
+
+function rebuild_with_scale(thing, scale)
+    # create "copy" of network
+    nw = Network(extract_nw(thing))
+
+    # adapt default values for line models
+    for m in nw.im.edgem
+        src, dst = get_graphelement(m)
+        row = findfirst((LINEP.src .== src) .& (LINEP.dst .== dst))
+        R, X = LINEP[row, [:R, :X]]
+        if !iszero(R)
+            R, X = scale*R, scale*X
+        end
+        set_default!(m, :rlbranch₊R, R)
+        set_default!(m, :rlbranch₊L, X)
+        pfmod = get_pfmodel(m)
+        set_default!(pfmod, :rlbranch_static₊R, R)
+        set_default!(pfmod, :rlbranch_static₊X, X)
+    end
+
+    s0 = initialize_from_pf!(nw; tol=1e-7, nwtol=1e-6, verbose=false, warn=false)
     nw, s0
 end
 
