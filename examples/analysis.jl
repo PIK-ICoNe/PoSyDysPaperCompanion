@@ -561,7 +561,7 @@ function reinitialize_with_params(s0, tunable_p, p_new)
 end
 
 ## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
-eig_sweep_scales = range(1.0, 4.0; length=10)
+eig_sweep_scales = range(1.0, 4.0; length=25)
 eig_sweep_s0s = [
     load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=Float64(s), verbose=false)[2]
     for s in eig_sweep_scales
