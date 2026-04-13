@@ -251,19 +251,19 @@ function plot_load_step_comparison(scales; kwargs...)
             hidexdecorations!(ax; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
         end
         ts = refine_timeseries(sol.t)
-        for i in [1, 2, 3]
+        for (i, label) in zip([1, 2, 3], ["Bus 1: SG", "Bus 2: GFM", "Bus 3: GFL"])
             lines!(ax, ts, sol(ts, idxs=VIndex(i, :busbar₊u_mag)).u;
-                label="Bus $i", color=Cycled(i))
+                label, color=Cycled(i))
         end
         xlims!(ax, -0.01, 0.5)
-        row == 1 && axislegend(ax; position=:rb)
+        row == 1 && axislegend(ax; position=:rc)
     end
     fig
 end
 
 plot_load_step_comparison([1.0, 1.5, 2.0])
 let
-    fig = with_theme(ieee_theme(1)) do
+    fig = with_theme(ieee_theme(0.85)) do
         plot_load_step_comparison([1.0, 1.5, 2.0])
     end
     save(joinpath(FIGPATH, "01_load_step_scenarios.pdf"), fig)
@@ -414,15 +414,16 @@ plot_tracks(tracks, scales_vec;
     title="Eigenvalue Paths under Varying Grid Strength"
 )
 let
-    fig = with_theme(ieee_theme()) do
+    fig = with_theme(ieee_theme(2/3)) do
         plot_tracks(tracks, scales_vec;
-            highlight_modes=[54, 55],
+            # highlight_modes=[54, 55],
             xlims=xlims_full,
             ylims=ylims_full,
             title="Eigenvalue Paths under Varying Grid Strength"
         )
     end
     save(joinpath(FIGPATH, "02_eigenvalue_paths.pdf"), fig)
+    fig
 end
 
 ## Identify the critical mode and the nominal / critical operating points used throughout
@@ -434,6 +435,39 @@ scale_critical = scales_vec[idx_last_stable]
 s0_crit = eigenvalue_data[scale_critical]
 critical_mode = tracks[cmode, idx_last_stable]
 idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
+
+#=
+find exact point wher we leaf teh stability
+=#
+let
+    candidats = Base.range(scales_vec[idx_last_stable:idx_last_stable+1]..., length=100)
+    last_stable = NaN
+    for scale in candidats
+        _, s0 = rebuild_with_scale(s0_mix, scale)
+        maximum(real.(jacobian_eigenvals(s0))) > 1e-5 && break
+        last_stable = scale
+    end
+    last_stable
+end
+
+
+## find out wher we cross the stability region
+let scales_swee
+
+scales_sweep = sort!(unique!(vcat(
+    range(0.1, 1.0; length=25),
+    range(1.0, 4.0; length=25)
+)))
+eigenvalue_data = let d = OrderedDict{Float64, NWState}()
+    for Zscale in scales_sweep
+        _, s0 = rebuild_with_scale(s0_mix, Zscale)
+        d[Zscale] = s0
+    end
+    d
+end
+
+tracks = find_tracks(eigenvalue_data)
+scales_vec = collect(keys(eigenvalue_data))
 
 #=
 ## Impedance Extraction via Linearization
@@ -512,7 +546,7 @@ end
 plot_Zqd_bode(s0_nom, s0_crit)
 
 let
-    fig = with_theme(ieee_theme(3/4)) do
+    fig = with_theme(ieee_theme()) do
         plot_Zqd_bode(s0_nom, s0_crit)
     end
     save(joinpath(FIGPATH, "03_Zqd_bode.pdf"), fig)
@@ -552,19 +586,18 @@ instability, the GFL's PLL angle enters the participation, revealing the mechani
 that drives destabilization.
 =#
 
-@info "Participation factors at nominal grid strength (Zscale=1.0):"
-show_participation_factors(s0_nom; modes=[cmode], threshold=0.05)
-
-@info "Participation factors near instability (Zscale=$scale_critical):"
-show_participation_factors(s0_crit; modes=idx_crit, threshold=0.05)
-
-open(joinpath(FIGPATH, "participation_factors.txt"), "w") do io
+let io = IOBuffer()
+    println(io, "### Participation Factors — Before Optimization ###")
+    println(io)
     println(io, "=== Nominal grid strength (Zscale=1.0) ===")
     show_participation_factors(io, s0_nom; modes=[cmode], threshold=0.05)
     println(io)
     println(io, "=== Near instability (Zscale=$scale_critical) ===")
     show_participation_factors(io, s0_crit; modes=idx_crit, threshold=0.05)
-end
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, "p01_participation_factors_default.txt"), str)
+end;
 
 #=
 ### Eigenvalue Sensitivity
@@ -591,19 +624,18 @@ params_of_interest = let
     end
 end
 
-@info "Eigenvalue sensitivities at nominal (Zscale=1.0):"
-show_eigenvalue_sensitivity(s0_nom, cmode; params=params_of_interest)
-
-@info "Eigenvalue sensitivities near instability (Zscale=$scale_critical):"
-show_eigenvalue_sensitivity(s0_crit, idx_crit; params=params_of_interest)
-
-open(joinpath(FIGPATH, "parameter_sensitivities.txt"), "w") do io
+let io = IOBuffer()
+    println(io, "### Eigenvalue Sensitivities — Before Optimization ###")
+    println(io)
     println(io, "=== Nominal grid strength (Zscale=1.0) ===")
-    show_eigenvalue_sensitivity(io, s0_nom, cmode; params=params_of_interest)
+    show_eigenvalue_sensitivity(io, s0_nom, cmode; params=params_of_interest, sortby=:realmag)
     println(io)
     println(io, "=== Near instability (Zscale=$scale_critical) ===")
-    show_eigenvalue_sensitivity(io, s0_crit, idx_crit; params=params_of_interest)
-end
+    show_eigenvalue_sensitivity(io, s0_crit, idx_crit; params=params_of_interest, sortby=:realmag)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, "p02_sensitivities_default.txt"), str)
+end;
 
 #=
 ## Gradient-Based Controller Optimization
@@ -704,17 +736,15 @@ feedforward (CC2_F) needed reduction. The PLL and CC1 integral gains were alread
 near-optimal.
 =#
 
-for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
-    pct = round(100 * (tuned - orig) / orig; digits=1)
-    println("$sym\t$orig → $(round(tuned; sigdigits=4))\t($pct%)")
-end
-
-open(joinpath(FIGPATH, "tuned_parameters.txt"), "w") do io
+let io = IOBuffer()
     println(io, "symbol\toriginal\ttuned\tchange")
     for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
         pct = round(100 * (tuned - orig) / orig; digits=1)
         println(io, "$sym\t$orig\t$(round(tuned; sigdigits=4))\t$pct%")
     end
+    str = String(take!(io))
+    write(joinpath(FIGPATH, "p05_tuned_parameters.txt"), str)
+    print(stdout, str)
 end
 
 #=
@@ -756,7 +786,7 @@ function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8], lab
                 color=Cycled(j), label)
         end
         xlms = (-0.01, 0.5)
-        ylms = (0.929, 1.035)
+        ylms = (0.939, 1.035)
         xlims!(ax1, xlms...); xlims!(ax2, xlms...)
         ylims!(ax1, ylms...); ylims!(ax2, ylms...)
         row == 1 && axislegend(ax1; position=:rb)
@@ -767,7 +797,7 @@ end
 plot_before_after(sols_default, sols_optimized, opt_scales)
 
 let
-    fig = with_theme(ieee_theme_wide(0.5)) do
+    fig = with_theme(ieee_theme_wide(3/7)) do
         plot_before_after(sols_default, sols_optimized, opt_scales)
     end
     save(joinpath(FIGPATH, "04_load_step_before_after.pdf"), fig)
@@ -789,6 +819,39 @@ function reinitialize_with_params(s0, tunable_p, p_new)
     end
     initialize_from_pf!(nw; tol=1e-7, nwtol=1e-5, verbose=false, warn=false)
 end
+
+# check on the participation factors and sensitivy again after optimiation
+let io = IOBuffer()
+    s0_nom_opt  = reinitialize_with_params(s0_nom,  tunable_p, optsol.u)
+    s0_crit_opt = reinitialize_with_params(s0_crit, tunable_p, optsol.u)
+    idx_crit_opt = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit_opt) ./ (2π))[2]
+    println(io, "### Participation Factors — After Optimization ###")
+    println(io)
+    println(io, "=== Nominal grid strength (Zscale=1.0) ===")
+    show_participation_factors(io, s0_nom_opt; modes=[cmode], threshold=0.05)
+    println(io)
+    println(io, "=== Near instability (Zscale=$scale_critical) ===")
+    show_participation_factors(io, s0_crit_opt; modes=idx_crit_opt, threshold=0.05)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, "p03_participation_factors_optimized.txt"), str)
+end;
+
+let io = IOBuffer()
+    s0_nom_opt  = reinitialize_with_params(s0_nom,  tunable_p, optsol.u)
+    s0_crit_opt = reinitialize_with_params(s0_crit, tunable_p, optsol.u)
+    idx_crit_opt = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit_opt) ./ (2π))[2]
+    println(io, "### Eigenvalue Sensitivities — After Optimization ###")
+    println(io)
+    println(io, "=== Nominal grid strength (Zscale=1.0) ===")
+    show_eigenvalue_sensitivity(io, s0_nom_opt, cmode; params=params_of_interest, sortby=:realmag)
+    println(io)
+    println(io, "=== Near instability (Zscale=$scale_critical) ===")
+    show_eigenvalue_sensitivity(io, s0_crit_opt, idx_crit_opt; params=params_of_interest, sortby=:realmag)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, "p04_sensitivities_optimized.txt"), str)
+end;
 
 ## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
 eig_sweep_scales = range(1.0, 4.0; length=25)
@@ -871,13 +934,13 @@ end
 plot_optimized_tracks(tracks_default, tracks_optimized)
 
 let
-    fig = with_theme(ieee_theme(4/5)) do
+    fig = with_theme(ieee_theme(2/3)) do
         plot_optimized_tracks(tracks_default, tracks_optimized;
-            ev_pairs = [
-                55 => 54,
-                # 53 => 46,
-                43 => 28,
-            ]
+            # ev_pairs = [
+            #     55 => 54,
+            #     53 => 46,
+            #     43 => 28,
+            # ]
         )
     end
     save(joinpath(FIGPATH, "05_eigenvalue_tracks_before_after.pdf"), fig)
@@ -925,10 +988,11 @@ function plot_strong_disturbance()
 end
 
 let
-    fig = with_theme(ieee_theme(3/4)) do
+    fig = with_theme(ieee_theme(2/3)) do
         plot_strong_disturbance()
     end
     save(joinpath(FIGPATH, "06_strong_disturbance_response.pdf"), fig)
+    fig
 end
 
 #=
