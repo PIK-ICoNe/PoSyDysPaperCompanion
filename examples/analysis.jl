@@ -108,13 +108,13 @@ function base_theme()
                 yticklabelsize     = 7,
                 xlabelsize         = 8,
                 ylabelsize         = 8,
-                # titlesize          = 8,
-                # xgridvisible       = false,
-                # ygridvisible       = false,
-                # xminorticksvisible = true,
-                # yminorticksvisible = true,
-                # xminorticks        = IntervalsBetween(5),
-                # yminorticks        = IntervalsBetween(5),
+                ## titlesize          = 8,
+                ## xgridvisible       = false,
+                ## ygridvisible       = false,
+                ## xminorticksvisible = true,
+                ## yminorticksvisible = true,
+                ## xminorticks        = IntervalsBetween(5),
+                ## yminorticks        = IntervalsBetween(5),
             ),
 
             Legend = (
@@ -381,7 +381,7 @@ function plot_tracks(tracks, key_vals;
     scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
         color=faint ? :darkgray : :black,
         markersize=4, marker=:xcross)
-    # text!(ax, map(s -> (real(s), imag(s)), tracks[:, baseline_idx]); text=repr.(1:length(tracks[:, 1])), color=:black, fontsize=6)
+    ## text!(ax, map(s -> (real(s), imag(s)), tracks[:, baseline_idx]); text=repr.(1:length(tracks[:, 1])), color=:black, fontsize=6)
 
     !isnothing(xlims) && Makie.xlims!(ax, xlims...)
     !isnothing(ylims) && Makie.ylims!(ax, ylims...)
@@ -416,7 +416,7 @@ plot_tracks(tracks, scales_vec;
 let
     fig = with_theme(ieee_theme(2/3)) do
         plot_tracks(tracks, scales_vec;
-            # highlight_modes=[54, 55],
+            ## highlight_modes=[54, 55],
             xlims=xlims_full,
             ylims=ylims_full,
             title="Eigenvalue Paths under Varying Grid Strength"
@@ -609,7 +609,7 @@ nominal and weak-grid conditions.
 
 params_of_interest = let
     candidates = vidxs(s0_nom, 2:3, s=false, p=true, in=false, out=false, obs=false)
-    # we are only interested in control parameters, so we filter for "filter" states
+    ## we are only interested in control parameters, so we filter for "filter" states
     filter!(candidates) do idx
         name = string(idx.subidx)
         !(
@@ -879,7 +879,7 @@ tracks_optimized = compute_eig_tracks(optsol.u)
 
 function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt);
         ev_pairs=Pair{Int,Int}[], ev_pair_gap=0.02)
-    # filter default tracks to scales > 1 to match the optimized sweep range
+    ## filter default tracks to scales > 1 to match the optimized sweep range
     mask = sv_def .>= 1.0
 
     fig = Figure(size=theme_size(600, 500))
@@ -893,15 +893,15 @@ function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt);
     if !isempty(ev_pairs)
         baseline_def = argmin(abs.(sv_def .- 1.0))
         baseline_opt = argmin(abs.(sv_opt .- 1.0))
-        # compute gap in axis-normalized space so it is visually uniform
-        # despite the very different x/y data ranges
+        ## compute gap in axis-normalized space so it is visually uniform
+        ## despite the very different x/y data ranges
         Δx = xlims_full[2] - xlims_full[1]
         Δy = ylims_full[2] - ylims_full[1]
         for (i_old, i_new) in ev_pairs
             old_ev = tr_def[i_old, baseline_def]
             new_ev = tr_opt[i_new, baseline_opt]
             diff = new_ev - old_ev
-            # direction in normalized coords, then scale back to data coords
+            ## direction in normalized coords, then scale back to data coords
             dir_n = complex(real(diff)/Δx, imag(diff)/Δy)
             dir_n /= abs(dir_n)
             offset = complex(ev_pair_gap * real(dir_n) * Δx, ev_pair_gap * imag(dir_n) * Δy)
@@ -936,11 +936,11 @@ plot_optimized_tracks(tracks_default, tracks_optimized)
 let
     fig = with_theme(ieee_theme(2/3)) do
         plot_optimized_tracks(tracks_default, tracks_optimized;
-            # ev_pairs = [
-            #     55 => 54,
-            #     53 => 46,
-            #     43 => 28,
-            # ]
+            ## ev_pairs = [
+            ##     55 => 54,
+            ##     53 => 46,
+            ##     43 => 28,
+            ## ]
         )
     end
     save(joinpath(FIGPATH, "05_eigenvalue_tracks_before_after.pdf"), fig)

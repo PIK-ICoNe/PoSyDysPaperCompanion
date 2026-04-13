@@ -1,0 +1,50 @@
+name = "PoSyDysPaperCompanion-Docs"
+
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+ModelingToolkitStandardLibrary = "16a59e39-deab-5bd0-87e4-056b12336739"
+NetworkDynamics = "22e9dc34-2a0d-11e9-0de0-8588d035468b"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
+Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
+OptimizationOptimisers = "42dfb2eb-d2b4-4451-abcd-913932933ac1"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+OrdinaryDiffEqNonlinearSolve = "127b3ac7-2247-4354-8eb6-78cf4e7c58e8"
+OrdinaryDiffEqRosenbrock = "43230ef6-c299-4910-a778-202eb28ce4ce"
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
+PoSyDysPaperCompanion = "091565a9-e1fb-4855-a2b9-f7c9dfb9e51f"
+PowerDynamics = "cc46b21f-1b17-51c2-b642-af74c3d3a8be"
+SparseConnectivityTracer = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
+SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
+
+[sources]
+NetworkDynamics = {rev = "8385b837953ea8e43b15665a67b43aac068d2778", url = "https://github.com/JuliaDynamics/NetworkDynamics.jl.git"}
+PoSyDysPaperCompanion = {path = "/home/hw/.julia/dev/PoSyDysPaperCompanion"}
+PowerDynamics = {rev = "aeaba367c7a2000c6da51e146d67d77cdad1a7e3", url = "https://github.com/JuliaEnergy/PowerDynamics.jl.git"}
+
+[compat]
+CairoMakie = "0.15"
+DiffEqCallbacks = "≥0.0.1"
+Documenter = "1"
+ForwardDiff = "≥0.0.1"
+Graphs = "≥0.0.1"
+Literate = "2"
+ModelingToolkit = "≥0.0.1"
+ModelingToolkitStandardLibrary = "≥0.0.1"
+NetworkDynamics = "≥0.0.1"
+Optimisers = "≥0.0.1"
+Optimization = "≥0.0.1"
+OptimizationOptimisers = "≥0.0.1"
+OrderedCollections = "≥0.0.1"
+OrdinaryDiffEqNonlinearSolve = "≥0.0.1"
+OrdinaryDiffEqRosenbrock = "≥0.0.1"
+OrdinaryDiffEqTsit5 = "≥0.0.1"
+PoSyDysPaperCompanion = "≥0.0.1"
+PowerDynamics = "≥0.0.1"
+SparseConnectivityTracer = "≥0.0.1"
+SymbolicIndexingInterface = "≥0.0.1"
