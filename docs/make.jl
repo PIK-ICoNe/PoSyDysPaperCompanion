@@ -14,7 +14,10 @@ doc = makedocs(;
     root=joinpath(pkgdir(PoSyDysPaperCompanion), "docs"),
     sitename="PoSyDysPaperCompanion.jl",
     modules=[PoSyDysPaperCompanion],
-    pages=["Companion Script" => "generated/analysis.md"],
+    pages=[
+        "Home" => "index.md",
+        "Companion Script" => "generated/analysis.md",
+    ],
     remotes=nothing,
     format=Documenter.HTML(;
         canonical="https://hexaeder.github.io/PoSyDysPaperCompanion.jl",
