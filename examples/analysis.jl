@@ -293,9 +293,7 @@ function find_tracks(states::OrderedDict{Float64})
     tracks
 end
 
-## FIXME: tmp fast build — replace with the line below for full run
-scales_sweep = sort!(unique!(vcat(range(0.1, 1.0; length=5), range(1.0, 4.0; length=5))))
-## scales_sweep = sort!(unique!(vcat(range(0.1, 1.0; length=25), range(1.0, 4.0; length=25))))
+scales_sweep = sort!(unique!(vcat(range(0.1, 1.0; length=25), range(1.0, 4.0; length=25))))
 
 eigenvalue_data = let d = OrderedDict{Float64, NWState}()
     for Zscale in scales_sweep
@@ -422,35 +420,29 @@ end
 ``` #md
 =#
 
-# Identify the critical mode and the nominal / critical operating points used throughout
-cmode = 54
-s0_nom = eigenvalue_data[1.0]
-
-## FIXME: tmp fast build — uncomment the idx_last_stable block for full run
-## idx_last_stable = findlast(λ -> real(λ) < 0, tracks[cmode, :])
-## scale_critical = scales_vec[idx_last_stable]
-scale_critical = 2.25
-_, s0_crit = rebuild_with_scale(s0_mix, scale_critical)
-## critical_mode = tracks[cmode, idx_last_stable]
-critical_mode = jacobian_eigenvals(s0_crit)[cmode] / (2π)
-## idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
-idx_crit = cmode
-
 #=
-Find the exact stability boundary by bisection within the last stable interval.
+Identify the critical mode and the nominal / critical operating points used throughout.
+
+Based on the matched eigenvalue tracks we can find the mode which crosses into instability first:
 =#
-## let
-##     candidats = Base.range(scales_vec[idx_last_stable:idx_last_stable+1]..., length=100)
-##     last_stable = NaN
-##     for scale in candidats
-##         _, s0 = rebuild_with_scale(s0_mix, scale)
-##         maximum(real.(jacobian_eigenvals(s0))) > 1e-5 && break
-##         last_stable = scale
-##     end
-##     last_stable
-## end
+idx_last_stable = findlast(vec -> all(λ -> real(λ) < 1e-7, vec), eachcol(tracks))
+scale_critical = scales_vec[idx_last_stable]
+cmode_pair = findall(λ -> real(λ) > 1e-7, tracks[:, idx_last_stable+1])
 
 #=
+Those are the modes which dip into instability at the critical point. They are conugate pairs owe can take any of those:
+=#
+cmode = first(cmode_pair)
+critical_mode = tracks[cmode, idx_last_stable] # the critical mode just before instability
+#=
+This is the index of the mode at nominal condition. We also need identify the mode index at the critical position:
+=#
+s0_nom = eigenvalue_data[1.0] # get the state at nominal condition
+_, s0_crit = rebuild_with_scale(s0_mix, scale_critical) # get the state at critical condition
+idx_crit = findmin(λ -> abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]
+#=
+This is now the index of the critical node at critical condition.
+
 ## Impedance Extraction via Linearization
 
 Using `linearize_network`, we extract the driving-point impedance at each bus by
@@ -716,9 +708,7 @@ optsol, opt_states = let states = Any[]
         false
     end
     optprob = Optimization.OptimizationProblem(optf, p0_opt; callback=cb)
-    ## FIXME: tmp fast build — use Adam(5e-3); maxiters=100 for full run
-    sol = @time Optimization.solve(optprob, Optimisers.Adam(5e-2); maxiters=10)
-    ## sol = @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
+    sol = @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
     best = Inf
     frames = filter(states) do s
         s.objective < best ? (best = s.objective; true) : false
@@ -878,9 +868,7 @@ end;
 =#
 
 ## Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
-## FIXME: tmp fast build — use length=25 for full run
-eig_sweep_scales = range(1.0, 4.0; length=5)
-## eig_sweep_scales = range(1.0, 4.0; length=25)
+eig_sweep_scales = range(1.0, 4.0; length=25)
 eig_sweep_s0s = [rebuild_with_scale(s0_mix, Float64(s))[2] for s in eig_sweep_scales];
 
 """
@@ -1063,7 +1051,7 @@ time-domain oscillations as parameters evolve.
 =#
 
 let
-    prob = first(opt_problems)
+    prob = last(opt_problems)
     fig = Figure(size=theme_size(900, 500))
     ax_v   = Axis(fig[1, 1]; xlabel="Time [s]", ylabel="Voltage [pu]")
     ax_eig = Axis(fig[1, 2]; xlabel="Real [Hz]", ylabel="Imag [Hz]")
