@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Companion Script · PoSyDysPaperCompanion.jl</title><meta name="title" content="Companion Script · PoSyDysPaperCompanion.jl"/><meta property="og:title" content="Companion Script · PoSyDysPaperCompanion.jl"/><meta property="twitter:title" content="Companion Script · PoSyDysPaperCompanion.jl"/><meta name="description" content="Documentation for PoSyDysPaperCompanion.jl."/><meta property="og:description" content="Documentation for PoSyDysPaperCompanion.jl."/><meta property="twitter:description" content="Documentation for PoSyDysPaperCompanion.jl."/><meta property="og:url" content="https://hexaeder.github.io/PoSyDysPaperCompanion.jl/generated/analysis/"/><meta property="twitter:url" content="https://hexaeder.github.io/PoSyDysPaperCompanion.jl/generated/analysis/"/><link rel="canonical" href="https://hexaeder.github.io/PoSyDysPaperCompanion.jl/generated/analysis/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">PoSyDysPaperCompanion.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li class="is-active"><a class="tocitem" href>Companion Script</a><ul class="internal"><li><a class="tocitem" href="#The-Test-System"><span>The Test System</span></a></li><li><a class="tocitem" href="#Reference-Simulations:-Load-Disturbance"><span>Reference Simulations: Load Disturbance</span></a></li><li><a class="tocitem" href="#Eigenvalue-Analysis:-Impedance-Sweep"><span>Eigenvalue Analysis: Impedance Sweep</span></a></li><li><a class="tocitem" href="#Impedance-Extraction-via-Linearization"><span>Impedance Extraction via Linearization</span></a></li><li><a class="tocitem" href="#Gradient-Based-Controller-Optimization"><span>Gradient-Based Controller Optimization</span></a></li><li><a class="tocitem" href="#Eigenvalue-Evolution-Animation"><span>Eigenvalue Evolution Animation</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Companion Script</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Companion Script</a></li></ul></nav><div class="docs-right"><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="analysis"><a class="docs-heading-anchor" href="#analysis">PoSyDyS 2026 — Companion Script</a><a id="analysis-1"></a><a class="docs-heading-anchor-permalink" href="#analysis" title="Permalink"></a></h1><p>This script accompanies the paper <em>&quot;Differentiable Simulation for Power System Dynamics&quot;</em> (PoSyDyS 2026) and can be downloaded as a plain Julia script <a href="../analysis.jl">here</a>.</p><p>It demonstrates four analysis workflows enabled by the differentiable simulation framework PowerDynamics.jl, all on the same modified IEEE 9-bus test system:</p><ol><li><strong>Reference simulations</strong> — load-step response, all-SG vs mixed inverter system</li><li><strong>Eigenvalue analysis</strong> — tracking modal migration as the grid weakens</li><li><strong>Impedance extraction</strong> — Bode plots of Z_qd and cross-validation</li><li><strong>Gradient-based optimization</strong> — tuning GFL controller parameters via AD through the ODE solver</li></ol><pre><code class="language-julia hljs">using PowerDynamics
+using PowerDynamics.Library
+using ModelingToolkit
+using PoSyDysPaperCompanion
+using NetworkDynamics
+using Graphs
+using DiffEqCallbacks
+using OrdinaryDiffEqRosenbrock
+using OrdinaryDiffEqNonlinearSolve
+using CairoMakie
+using LinearAlgebra
+using OrderedCollections: OrderedDict
+using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
+using Optimization, Optimisers, OptimizationOptimisers</code></pre><details class="admonition is-details">
+<summary class="admonition-header">IEEE Conference Figure Theme (CairoMakie)</summary>
+<div class="admonition-body"><p>Figure Export Specifications for IEEE Conference (IEEEtran, conference mode)</p><p><strong>Column widths</strong> (from IEEEtran.cls, letter paper, 0.625 in margins, 0.25 in column sep):</p><ul><li>Single-column figure → <code>\columnwidth</code> = 3.5 in = 88.9 mm = 252 pt</li><li>Double-column figure → <code>\textwidth</code>   = 7.25 in = 184.2 mm = 522 pt</li></ul><p><strong>Format</strong>: line art → vector PDF (<code>pt_per_unit=1</code>); raster → PNG at <code>px_per_unit=8</code> (≈576 DPI).</p><p>Two <code>with_theme</code> helpers are defined: <code>ieee_theme()</code> (single-col) and <code>ieee_theme_wide()</code> (double-col). Both use <code>theme_latexfonts()</code> so fonts match the LaTeX document.</p><p>Canonical figure dimensions in Makie pt units (1 pt = 1 CSS/PDF point).</p><pre><code class="language-julia hljs">FIGPATH = joinpath(pkgdir(PoSyDysPaperCompanion), &quot;paper&quot;, &quot;figures&quot;)
+mkpath(FIGPATH)
+
+theme_size() = theme_size(600, 400)
+function theme_size(x, y)
+    if hasproperty(Makie.current_default_theme(), :Figure) &amp;&amp; hasproperty(Makie.current_default_theme().Figure, :size)
+        Makie.current_default_theme().Figure.size
+    else
+        (x, y)
+    end
+end
+
+function base_theme()
+    merge(
+        theme_latexfonts(),
+        Theme(
+            fontsize       = 8,
+            figure_padding = 2,
+            palette        = (color = Makie.wong_colors(),),
+
+            Axis = (
+                spinewidth         = 0.5,
+                xtickwidth         = 0.5,
+                ytickwidth         = 0.5,
+                xticksize          = 3,
+                yticksize          = 3,
+                xticklabelsize     = 7,
+                yticklabelsize     = 7,
+                xlabelsize         = 8,
+                ylabelsize         = 8,
+            ),
+
+            Legend = (
+                labelsize  = 7,
+                titlesize  = 8,
+                framewidth = 0.5,
+                padding    = (4f0, 4f0, 4f0, 4f0),
+                patchsize  = (14f0, 6f0),
+                rowgap     = 2,
+            ),
+
+            Lines    = (linewidth = 1.25,),
+            Scatter  = (markersize = 4,),
+
+            Colorbar = (
+                ticklabelsize = 7,
+                labelsize     = 8,
+                width         = 10,
+                spinewidth    = 0.5,
+            ),
+            rowgap = 4,
+            colgap = 4,
+        )
+    )
+end
+function ieee_theme(scale=1/sqrt(2))
+    w = 252 # \columnwidth
+    merge(base_theme(), Theme(Figure = (size = (w, floor(Int, scale * w)),)))
+end
+function ieee_theme_wide(scale=1/sqrt(2))
+    w = 522 # \textwidth
+    merge(base_theme(), Theme(Figure = (size = (w, floor(Int, scale * w)),)))
+end
+nothing #hide #hmd</code></pre></div>
+</details><h2 id="The-Test-System"><a class="docs-heading-anchor" href="#The-Test-System">The Test System</a><a id="The-Test-System-1"></a><a class="docs-heading-anchor-permalink" href="#The-Test-System" title="Permalink"></a></h2><p>We build three variants of the IEEE 9-bus:</p><ul><li><strong>All-SG (RMS)</strong>: classical SauerPai machines with AVR and governor (static PiLines)</li><li><strong>All-SG (EMT)</strong>: same machines but with stator dynamics and dynamic RL lines</li><li><strong>Mixed (EMT)</strong>: Bus 1 = SG, Bus 2 = GFM droop inverter, Bus 3 = GFL current source</li></ul><p>The mixed system is our main study object. Varying the line impedance scaling parameter <code>Zscale</code> simulates different grid strengths.</p><pre><code class="language-julia hljs">nw_rms, s0_rms = load_ieee9bus()
+nw_emt, s0_emt = load_ieee9bus_emt()
+nw_mix, s0_mix = load_ieee9bus_emt(gfm=true, gfl=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Network with 76 states and 158 parameters
+ ├─ 9 vertices (5 unique types)
+ └─ 9 edges (1 unique type)
+Edge-Aggregation using SequentialAggregator(+)</code></pre><h3 id="Power-Flow-Validation"><a class="docs-heading-anchor" href="#Power-Flow-Validation">Power Flow Validation</a><a id="Power-Flow-Validation-1"></a><a class="docs-heading-anchor-permalink" href="#Power-Flow-Validation" title="Permalink"></a></h3><p>All three models share the same power flow solution — the dynamic model choice does not affect the steady-state operating point.</p><pre><code class="language-julia hljs">pf_rms = show_powerflow(nw_rms)
+pf_emt = show_powerflow(nw_emt)
+pf_mix = show_powerflow(nw_mix)
+
+@assert pf_rms.&quot;vm [pu]&quot; ≈ pf_emt.&quot;vm [pu]&quot; ≈ pf_mix.&quot;vm [pu]&quot;
+@assert pf_rms.&quot;varg [deg]&quot; ≈ pf_emt.&quot;varg [deg]&quot; ≈ pf_mix.&quot;varg [deg]&quot;</code></pre><h2 id="Reference-Simulations:-Load-Disturbance"><a class="docs-heading-anchor" href="#Reference-Simulations:-Load-Disturbance">Reference Simulations: Load Disturbance</a><a id="Reference-Simulations:-Load-Disturbance-1"></a><a class="docs-heading-anchor-permalink" href="#Reference-Simulations:-Load-Disturbance" title="Permalink"></a></h2><p>We apply a 10% increase in real power consumption at Bus 8 (load bus between the GFM and GFL corners of the network). This excites both inverters through the network and reveals the oscillatory dynamics governed by the eigenvalues we analyze later.</p><pre><code class="language-julia hljs">function make_load_step_problem(s0; tspan=(-5.0, 1.0), ΔG_factor=1.1)
+    nw = extract_nw(s0)
+    affect! = integrator -&gt; begin
+        s = NWState(integrator)
+        s[VIndex(8, :load₊G)] *= ΔG_factor
+        save_parameters!(integrator)
+    end
+    cb = PresetTimeCallback(0.0, affect!)
+    ODEProblem(nw, s0, tspan; add_nw_cb=cb)
+end</code></pre><h3 id="All-SG-vs-Mixed-System-(Nominal-Grid)"><a class="docs-heading-anchor" href="#All-SG-vs-Mixed-System-(Nominal-Grid)">All-SG vs Mixed System (Nominal Grid)</a><a id="All-SG-vs-Mixed-System-(Nominal-Grid)-1"></a><a class="docs-heading-anchor-permalink" href="#All-SG-vs-Mixed-System-(Nominal-Grid)" title="Permalink"></a></h3><p>The all-SG system shows classical ~0.25 Hz electromechanical oscillations between the generators. The mixed system settles much faster — the inverters have no physical inertia and respond on converter control timescales instead.</p><pre><code class="language-julia hljs">sol_emt, sol_mix = let
+    prob_emt = make_load_step_problem(s0_emt)
+    prob_mix = make_load_step_problem(s0_mix)
+    solve(prob_emt, Rodas5P()), solve(prob_mix, Rodas5P())
+end;
+
+let fig = Figure(size=theme_size(800, 500))
+    ts = range(-0.01, 1.0, length=1000)
+
+    ax1 = Axis(fig[1, 1]; title=&quot;Voltage Magnitude — All-SG (EMT)&quot;,
+        xlabel=&quot;Time [s]&quot;, ylabel=&quot;Voltage [pu]&quot;)
+    ax2 = Axis(fig[1, 2]; title=&quot;Voltage Magnitude — Mixed SG+IBR&quot;,
+        xlabel=&quot;Time [s]&quot;, ylabel=&quot;Voltage [pu]&quot;)
+
+    for i in [1, 2, 3]
+        lines!(ax1, ts, sol_emt(ts, idxs=VIndex(i, :busbar₊u_mag)).u;
+            label=&quot;Bus $i&quot;, color=Cycled(i))
+        lines!(ax2, ts, sol_mix(ts, idxs=VIndex(i, :busbar₊u_mag)).u;
+            label=&quot;Bus $i&quot;, color=Cycled(i))
+    end
+    axislegend(ax1; position=:rb)
+    axislegend(ax2; position=:rb)
+    fig
+end</code></pre><img src="acc41893.png" alt="Example block output"/><h3 id="Effect-of-Grid-Weakness"><a class="docs-heading-anchor" href="#Effect-of-Grid-Weakness">Effect of Grid Weakness</a><a id="Effect-of-Grid-Weakness-1"></a><a class="docs-heading-anchor-permalink" href="#Effect-of-Grid-Weakness" title="Permalink"></a></h3><p>Increasing <code>Zscale</code> (scaling all non-transformer line impedances) weakens the grid. The mixed system develops visible oscillations at ~28 Hz as the converter-filter resonance mode loses damping.</p><pre><code class="language-julia hljs">function plot_load_step_comparison(scales; kwargs...)
+    s0s = [rebuild_with_scale(s0_mix, s)[2] for s in scales]
+    sols = [solve(make_load_step_problem(s0; kwargs...), Rodas5P()) for s0 in s0s]
+
+    fig = Figure(size=theme_size(800, length(scales) * 250))
+    for (row, (s, sol)) in enumerate(zip(scales, sols))
+        ax = Axis(fig[row, 1]; ylabel=&quot;Voltage [pu]&quot;, title=L&quot;$Z$ scale = %$s&quot;)
+        if row == length(s0s)
+            ax.xlabel = &quot;Time [s]&quot;
+        else
+            hidexdecorations!(ax; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+        end
+        ts = refine_timeseries(sol.t)
+        for (i, label) in zip([1, 2, 3], [&quot;Bus 1: SG&quot;, &quot;Bus 2: GFM&quot;, &quot;Bus 3: GFL&quot;])
+            lines!(ax, ts, sol(ts, idxs=VIndex(i, :busbar₊u_mag)).u;
+                label, color=Cycled(i))
+        end
+        xlims!(ax, -0.01, 0.5)
+        row == 1 &amp;&amp; axislegend(ax; position=:rc)
+    end
+    fig
+end
+
+plot_load_step_comparison([1.0, 1.5, 2.0])</code></pre><img src="466944c1.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme(0.85)) do
+        plot_load_step_comparison([1.0, 1.5, 2.0])
+    end
+    save(joinpath(FIGPATH, &quot;01_load_step_scenarios.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="1a43f8e2.png" alt="Example block output"/></div>
+</details><h2 id="Eigenvalue-Analysis:-Impedance-Sweep"><a class="docs-heading-anchor" href="#Eigenvalue-Analysis:-Impedance-Sweep">Eigenvalue Analysis: Impedance Sweep</a><a id="Eigenvalue-Analysis:-Impedance-Sweep-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Analysis:-Impedance-Sweep" title="Permalink"></a></h2><p>We compute eigenvalues across a range of <code>Zscale</code> values from 0.1 (very strong grid) to 4.0 (very weak grid) and track how each mode migrates in the complex plane.</p><pre><code class="language-julia hljs">function match_eigenvalues(ref_eigs, new_eigs)
+    n = length(ref_eigs)
+    matched = zeros(ComplexF64, n)
+    available = collect(1:n)
+    for i in 1:n
+        dists = abs.(ref_eigs[i] .- new_eigs[available])
+        best = argmin(dists)
+        matched[i] = new_eigs[available[best]]
+        deleteat!(available, best)
+    end
+    matched
+end
+
+function find_tracks(states::OrderedDict{Float64})
+    key_vals = collect(keys(states))
+    eig_data = [jacobian_eigenvals(s) ./ (2π) for s in values(states)]
+    n_eigs = length(first(eig_data))
+
+    baseline_idx = argmin(abs.(key_vals .- 1.0))
+    baseline_order = sortperm(eig_data[baseline_idx]; by=x -&gt; (real(x), imag(x)))
+    tracks = Matrix{ComplexF64}(undef, n_eigs, length(key_vals))
+    tracks[:, baseline_idx] = eig_data[baseline_idx][baseline_order]
+
+    for j in (baseline_idx+1):length(key_vals)
+        tracks[:, j] = match_eigenvalues(tracks[:, j-1], eig_data[j])
+    end
+    for j in (baseline_idx-1):-1:1
+        tracks[:, j] = match_eigenvalues(tracks[:, j+1], eig_data[j])
+    end
+    tracks
+end
+
+scales_sweep = sort!(unique!(vcat(range(0.1, 1.0; length=25), range(1.0, 4.0; length=25))))
+
+eigenvalue_data = let d = OrderedDict{Float64, NWState}()
+    for Zscale in scales_sweep
+        _, s0 = rebuild_with_scale(s0_mix, Zscale)
+        d[Zscale] = s0
+    end
+    d
+end
+
+tracks = find_tracks(eigenvalue_data)
+scales_vec = collect(keys(eigenvalue_data))</code></pre><h3 id="Eigenvalue-Trajectory-Plot"><a class="docs-heading-anchor" href="#Eigenvalue-Trajectory-Plot">Eigenvalue Trajectory Plot</a><a id="Eigenvalue-Trajectory-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Trajectory-Plot" title="Permalink"></a></h3><p>Colours encode the impedance scaling (blue = strong grid, red = weak grid). Black crosses mark the baseline (Zscale = 1.0). We highlight two modes:</p><ul><li><strong>Mode 54/55</strong>: coupled converter-filter resonance — migrates toward instability</li><li><strong>Mode 72</strong>: SG electromechanical mode — also loses damping but is secondary</li></ul><pre><code class="language-julia hljs">function plot_tracks(tracks, key_vals;
+        ax=nothing,
+        highlight_modes=Int[], xlims=nothing, ylims=nothing, title=&quot;Eigenvalues&quot;,
+        colorbar=true, faint=false)
+    log_keys = log.(key_vals)
+    pos_max = max(maximum(log_keys), 0.0)
+    neg_max = max(-minimum(log_keys), 0.0)
+    norm_colors = map(l -&gt; l &gt;= 0 ? (iszero(pos_max) ? 0.0 : l / pos_max)
+                                  : (iszero(neg_max) ? 0.0 : l / neg_max), log_keys)
+    color_low = neg_max &gt; 0 ? -1.0 : 0.0
+    faintscheme = Makie.ColorScheme([colorant&quot;darkgray&quot;, colorant&quot;gray95&quot;, colorant&quot;darkgray&quot;])
+    basecmap = faint ? faintscheme : :bluesreds
+    pos_only_cmap = Makie.resample_cmap(basecmap, 256)[129:end]
+    track_cmap = neg_max &gt; 0 ? basecmap : pos_only_cmap
+    baseline_idx = argmin(abs.(key_vals .- 1.0))
+
+    own_fig = isnothing(ax)
+    if own_fig
+        fig = Figure(size=theme_size(800, 700))
+        ax = Axis(fig[1, 1]; xlabel=&quot;Real Part [Hz]&quot;, ylabel=&quot;Imaginary Part [Hz]&quot;, title)
+    end
+
+    faint || vspan!(ax, 0, 100; color=(:red, 0.07))
+
+    for m in highlight_modes
+        lines!(ax, real.(tracks[m, :]), imag.(tracks[m, :]);
+            color=:yellow,
+            alpha=0.3,
+            linewidth=6,
+            joinstyle=:round,
+            linecap=:round,
+        )
+    end
+
+    for i in axes(tracks, 1)
+        lines!(ax, real.(tracks[i, :]), imag.(tracks[i, :]);
+            color=norm_colors,
+            colorrange=(color_low, 1.0),
+            colormap=track_cmap,
+            linewidth= faint ? 1 : 2,
+            joinstyle=:round,
+            linecap=:round,
+        )
+    end
+    scatter!(ax, real.(tracks[:, baseline_idx]), imag.(tracks[:, baseline_idx]);
+        color=faint ? :darkgray : :black,
+        markersize=4, marker=:xcross)
+
+    !isnothing(xlims) &amp;&amp; Makie.xlims!(ax, xlims...)
+    !isnothing(ylims) &amp;&amp; Makie.ylims!(ax, ylims...)
+
+    if own_fig
+        if colorbar &amp;&amp; (pos_max &gt; 0 || neg_max &gt; 0)
+            kmin, kmax = minimum(key_vals), maximum(key_vals)
+            cb_low  = neg_max &gt; 0 ? -1.0 : 0.0
+            cb_high = pos_max &gt; 0 ?  1.0 : 0.0
+            cb_ticks = filter(t -&gt; cb_low &lt;= t[1] &lt;= cb_high, [
+                (-1.0, string(kmin)), (0.0, &quot;1.0&quot;), (1.0, string(kmax))])
+            Colorbar(fig[1, 2]; colormap=track_cmap, colorrange=(cb_low, cb_high),
+                ticks=(first.(cb_ticks), last.(cb_ticks)),
+                width=4, vertical=true)
+        end
+        return fig
+    end
+    ax
+end
+
+xlims_full = (-50, 5)
+ylims_full = (-110, 110)
+xlims_zoom = (-5, 5/10)
+ylims_zoom = (-5, 5)
+
+plot_tracks(tracks, scales_vec;
+    highlight_modes=[54, 55],
+    xlims=xlims_full,
+    ylims=ylims_full,
+    title=&quot;Eigenvalue Paths under Varying Grid Strength&quot;
+)</code></pre><img src="4a771940.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme(2/3)) do
+        plot_tracks(tracks, scales_vec;
+            xlims=xlims_full,
+            ylims=ylims_full,
+            title=&quot;Eigenvalue Paths under Varying Grid Strength&quot;
+        )
+    end
+    save(joinpath(FIGPATH, &quot;02_eigenvalue_paths.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="f80713ee.png" alt="Example block output"/></div>
+</details><p>Identify the critical mode and the nominal / critical operating points used throughout.</p><p>Based on the matched eigenvalue tracks we can find the mode which crosses into instability first:</p><pre><code class="language-julia hljs">idx_last_stable = findlast(vec -&gt; all(λ -&gt; real(λ) &lt; 1e-7, vec), eachcol(tracks))
+scale_critical = scales_vec[idx_last_stable]
+cmode_pair = findall(λ -&gt; real(λ) &gt; 1e-7, tracks[:, idx_last_stable+1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Int64}:
+ 54
+ 55</code></pre><p>Those are the modes which dip into instability at the critical point. They are conugate pairs owe can take any of those:</p><pre><code class="language-julia hljs">cmode = first(cmode_pair)
+critical_mode = tracks[cmode, idx_last_stable] # the critical mode just before instability</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.08080169430782994 - 27.635672325761504im</code></pre><p>This is the index of the mode at nominal condition. We also need identify the mode index at the critical position:</p><pre><code class="language-julia hljs">s0_nom = eigenvalue_data[1.0] # get the state at nominal condition
+_, s0_crit = rebuild_with_scale(s0_mix, scale_critical) # get the state at critical condition
+idx_crit = findmin(λ -&gt; abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">69</code></pre><p>This is now the index of the critical node at critical condition.</p><h2 id="Impedance-Extraction-via-Linearization"><a class="docs-heading-anchor" href="#Impedance-Extraction-via-Linearization">Impedance Extraction via Linearization</a><a id="Impedance-Extraction-via-Linearization-1"></a><a class="docs-heading-anchor-permalink" href="#Impedance-Extraction-via-Linearization" title="Permalink"></a></h2><p>Using <code>linearize_network</code>, we extract the driving-point impedance at each bus by perturbing the bus current and observing the voltage response. The result is rotated into a local dq frame aligned with the steady-state voltage.</p><pre><code class="language-julia hljs">function compute_Z_aligned(s0, bus_idx)
+    G = NetworkDynamics.linearize_network(s0;
+        in  = VIndex(bus_idx, [:busbar₊i_r, :busbar₊i_i]),
+        out = VIndex(bus_idx, [:busbar₊u_r, :busbar₊u_i]))
+
+    u_r = s0[VIndex(bus_idx, :busbar₊u_r)]
+    u_i = s0[VIndex(bus_idx, :busbar₊u_i)]
+    θ = atan(u_i, u_r)
+    R = [cos(θ) sin(θ); -sin(θ) cos(θ)]
+
+    B_rot = G.B * R&#39;
+    C_rot = R * G.C
+    D_rot = R * G.D * R&#39;
+
+    make = (row, col) -&gt; NetworkDescriptorSystem(
+        A=G.A, B=B_rot[:, col], C=C_rot[row:row, :], D=D_rot[row:row, col:col],
+        insym=VIndex(bus_idx, :local), outsym=VIndex(bus_idx, :local))
+
+    (; Zdd=make(1,1), Zdq=make(1,2), Zqd=make(2,1), Zqq=make(2,2))
+end</code></pre><h3 id="Bode-Plots:-Nominal-vs-Critical-Grid-Strength"><a class="docs-heading-anchor" href="#Bode-Plots:-Nominal-vs-Critical-Grid-Strength">Bode Plots: Nominal vs Critical Grid Strength</a><a id="Bode-Plots:-Nominal-vs-Critical-Grid-Strength-1"></a><a class="docs-heading-anchor-permalink" href="#Bode-Plots:-Nominal-vs-Critical-Grid-Strength" title="Permalink"></a></h3><p>The network is firmly inductive (R/X ≈ 0.12), so the dominant coupling channel is ΔP → Δδ, captured by Z_qd (q-voltage response to d-current perturbation). The sharp resonance peak at ~28 Hz (visible at critical Zscale) corresponds exactly to the eigenvalue mode that destabilizes. At nominal grid strength, the same mode is well-damped and barely visible.</p><pre><code class="language-julia hljs">function plot_Zqd_bode(s0_a, s0_b; buses=[2,3],
+        labels=[&quot;GFM Bus&quot;, &quot;GFL Bus&quot;],
+        label_suffix=[&quot;nominal&quot;, &quot;critical&quot;])
+    fs = 10 .^ range(-1.5, 3.5; length=800)
+    jωs = 2π .* fs .* im
+
+    fig = Figure(size=theme_size(800, 500))
+    ax_g = Axis(fig[1, 1]; ylabel=&quot;Gain (dB)&quot;, xscale=log10, title=L&quot;$Z_{qd}$ Bode Plot&quot;)
+
+    phaseticks = (-10:2:10)*π
+    phaselabels = [n==0 ? &quot;0&quot; : string(n) .* &quot;π&quot; for n in -10:2:10]
+    ax_p = Axis(fig[2, 1]; ylabel=&quot;Phase (rad)&quot;, xlabel=&quot;Frequency (Hz)&quot;, xscale=log10,
+        yticks=(phaseticks, phaselabels),
+    )
+
+    for (i, (bus, lab)) in enumerate(zip(buses, labels))
+        Za = compute_Z_aligned(s0_a, bus)
+        Zb = compute_Z_aligned(s0_b, bus)
+
+        lines!(ax_g, fs, [20log10(abs(Za.Zqd(s))) for s in jωs];
+            label=&quot;$lab ($(label_suffix[1]))&quot;, color=Cycled(i), alpha=0.6)
+        lines!(ax_g, fs, [20log10(abs(Zb.Zqd(s))) for s in jωs];
+            label=&quot;$lab ($(label_suffix[2]))&quot;, color=Cycled(i), linestyle=(:dash, :dense))
+
+        lines!(ax_p, fs, unwrap_rad([angle(Za.Zqd(s)) for s in jωs]);
+            label=&quot;$lab ($(label_suffix[1]))&quot;, color=Cycled(i), alpha=0.6)
+        lines!(ax_p, fs, unwrap_rad([angle(Zb.Zqd(s)) for s in jωs]);
+            label=&quot;$lab ($(label_suffix[2]))&quot;, color=Cycled(i), linestyle=(:dash, :dense))
+    end
+    xlims!(ax_p, extrema(fs))
+    xlims!(ax_g, extrema(fs))
+    axislegend(ax_p; position=:lb)
+    fig
+end
+
+plot_Zqd_bode(s0_nom, s0_crit)</code></pre><img src="afce63e0.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme()) do
+        plot_Zqd_bode(s0_nom, s0_crit)
+    end
+    save(joinpath(FIGPATH, &quot;03_Zqd_bode.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="92c1b0d4.png" alt="Example block output"/></div>
+</details><h3 id="Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?"><a class="docs-heading-anchor" href="#Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?">Cross-Validation: Is This Truly an Inverter-Inverter Interaction?</a><a id="Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?-1"></a><a class="docs-heading-anchor-permalink" href="#Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?" title="Permalink"></a></h3><p>We check whether the resonance appears with only one inverter present. It does not — confirming a coupled interaction between the GFM and GFL mediated by the network.</p><p>First: Simulation with just the GFL at Bus 3. Resonanze is absent.</p><pre><code class="language-julia hljs">let
+    s0_gfl_only = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
+    s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
+    plot_Zqd_bode(s0_gfl_only, s0_gfl_crit;
+        buses=[1,2,3],
+        labels=[&quot;SG Bus 1&quot;, &quot;SG Bus 2&quot;, &quot;GFL Bus&quot;])
+end</code></pre><img src="48e1e6e1.png" alt="Example block output"/><p>Second: Simulation with just the GFM at Bus 2. Resonance is absent.</p><pre><code class="language-julia hljs">let
+    s0_gfm_only = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
+    s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
+    plot_Zqd_bode(s0_gfm_only, s0_gfm_crit;
+        buses=[1,2,3],
+        labels=[&quot;SG Bus 1&quot;, &quot;GFM Bus&quot;, &quot;SG Bus 3&quot;])
+end</code></pre><img src="954ba6a1.png" alt="Example block output"/><h3 id="Participation-Factors"><a class="docs-heading-anchor" href="#Participation-Factors">Participation Factors</a><a id="Participation-Factors-1"></a><a class="docs-heading-anchor-permalink" href="#Participation-Factors" title="Permalink"></a></h3><p>At nominal grid strength, the critical mode (54/55) is dominated by the inner current controller integrator states of both inverters — a coupled filter resonance. Near instability, the GFL&#39;s PLL angle enters the participation, revealing the mechanism that drives destabilization.</p><pre><code class="language-julia hljs">let io = IOBuffer()
+    println(io, &quot;### Participation Factors — Before Optimization ###&quot;)
+    println(io)
+    println(io, &quot;=== Nominal grid strength (Zscale=1.0) ===&quot;)
+    show_participation_factors(io, s0_nom; modes=[cmode], threshold=0.05)
+    println(io)
+    println(io, &quot;=== Near instability (Zscale=$scale_critical) ===&quot;)
+    show_participation_factors(io, s0_crit; modes=idx_crit, threshold=0.05)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, &quot;p01_participation_factors_default.txt&quot;), str)
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">### Participation Factors — Before Optimization ###
+
+=== Nominal grid strength (Zscale=1.0) ===
+Participation Factors:
+  Mode  Real (Hz)  Imag (Hz)  Factor   State
+  ───────────────────────────────────────────────────────────────────
+  54    -5.486     -43.59     0.1429   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
+                              0.1323   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
+                              0.116    VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
+                              0.1039   VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
+                              0.09532  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+
+=== Near instability (Zscale=2.25) ===
+Participation Factors:
+  Mode  Real (Hz)  Imag (Hz)  Factor   State
+  ───────────────────────────────────────────────────────────────────
+  69    -0.0808    -27.64     0.1552   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
+                              0.1443   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
+                              0.1277   VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.08483  VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
+                              0.05858  VIndex(2, :gfm₊vsrc₊vc₊γ_q)
+                              0.05536  VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
+                              0.05145  VIndex(3, :gfl₊csrc₊vc₊γ_q)</code></pre><h3 id="Eigenvalue-Sensitivity"><a class="docs-heading-anchor" href="#Eigenvalue-Sensitivity">Eigenvalue Sensitivity</a><a id="Eigenvalue-Sensitivity-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Sensitivity" title="Permalink"></a></h3><p>We compute the sensitivity of the critical mode to all controller parameters of the GFM (bus 2) and GFL (bus 3) inverters. The ranking shifts significantly between nominal and weak-grid conditions.</p><pre><code class="language-julia hljs">params_of_interest = let
+    candidates = vidxs(s0_nom, 2:3, s=false, p=true, in=false, out=false, obs=false)
+    filter!(candidates) do idx
+        name = string(idx.subidx)
+        !(
+            contains(name, &quot;connected&quot;) ||
+            contains(name, r&quot;Lf$&quot;)      ||
+            contains(name, r&quot;Rf$&quot;)      ||
+            contains(name, r&quot;C$&quot;)       ||
+            contains(name, r&quot;Lg$&quot;)      ||
+            contains(name, r&quot;Rg$&quot;)      ||
+            contains(name, r&quot;ω0$&quot;)
+        )
+    end
+end
+
+let io = IOBuffer()
+    println(io, &quot;### Eigenvalue Sensitivities — Before Optimization ###&quot;)
+    println(io)
+    println(io, &quot;=== Nominal grid strength (Zscale=1.0) ===&quot;)
+    show_eigenvalue_sensitivity(io, s0_nom, cmode; params=params_of_interest, sortby=:realmag)
+    println(io)
+    println(io, &quot;=== Near instability (Zscale=$scale_critical) ===&quot;)
+    show_eigenvalue_sensitivity(io, s0_crit, idx_crit; params=params_of_interest, sortby=:realmag)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, &quot;p02_sensitivities_default.txt&quot;), str)
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
+<span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
+<span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 23.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
+### Eigenvalue Sensitivities — Before Optimization ###
+
+=== Nominal grid strength (Zscale=1.0) ===
+Eigenvalue Sensitivity for mode 54: λ = -5.486 ± 43.59j Hz
+  Parameter                        Value    Real (Hz)  Imag (Hz)  |p·∂λ/∂p| (Hz)  ∠ (deg)
+  ───────────────────────────────────────────────────────────────────────────────────────
+  VIndex(3, :gfl₊csrc₊CC1_KI)       63       16.29     -17.69     24.05           -47.37
+  VIndex(2, :gfm₊vsrc₊CC1_KI)       63      -12.91     -9.007     15.74           -145.1
+  VIndex(3, :gfl₊csrc₊PLL_Kp)       250      5.443     -4.197     6.873           -37.64
+  VIndex(3, :gfl₊csrc₊CC1_KP)       0.063   -5.1       -1.634     5.356           -162.2
+  VIndex(3, :gfl₊csrc₊VC_KI)        317.4    4.596      0.2197    4.601            2.737
+  VIndex(3, :gfl₊csrc₊CC2_F)        1        4.119      4.542     6.131            47.79
+  VIndex(2, :gfm₊vsrc₊VC_KI)        317.4   -3.997     -1.134     4.155           -164.2
+  VIndex(3, :gfl₊csrc₊CC2_KP)       0.189    3.851     -3.011     4.888           -38.02
+  VIndex(2, :gfm₊vsrc₊CC1_KP)       0.063   -2.022      3.846     4.345            117.7
+  VIndex(2, :gfm₊vsrc₊VC_Fcoupl)    1       -1.797     -0.2799    1.819           -171.1
+  VIndex(2, :gfm₊vsrc₊VC_KP)        0.952   -0.518      3.4       3.439            98.66
+  VIndex(2, :gfm₊vsrc₊CC1_Fcoupl)   1       -0.2271    -0.2587    0.3443          -131.3
+  VIndex(3, :gfl₊csrc₊VC_KP)        0.952   -0.214     -3.475     3.481           -93.52
+  VIndex(3, :gfl₊cp_outer₊Pset)     0.85     0.2016    -0.1597    0.2572          -38.38
+  VIndex(3, :gfl₊csrc₊CC2_Fcoupl)   1        0.09488    0.1331    0.1634           54.51
+  VIndex(3, :gfl₊csrc₊PLL_Ki)       1000     0.05049    0.08585   0.0996           59.54
+  VIndex(3, :gfl₊cp_outer₊Qset)    -0.1086  -0.04024   -0.03568   0.05378         -138.4
+  VIndex(3, :gfl₊csrc₊CC2_KI)       0.63     0.03407    0.05022   0.06069          55.85
+
+=== Near instability (Zscale=2.25) ===
+Eigenvalue Sensitivity for mode 69: λ = -0.0808 ± 27.64j Hz
+  Parameter                        Value     Real (Hz)  Imag (Hz)  |p·∂λ/∂p| (Hz)  ∠ (deg)
+  ────────────────────────────────────────────────────────────────────────────────────────
+  VIndex(3, :gfl₊csrc₊CC2_F)        1         17.47      6.219     18.54            19.59
+  VIndex(3, :gfl₊csrc₊VC_KI)        317.4     6.543     -6.471     9.202           -44.68
+  VIndex(3, :gfl₊csrc₊CC1_KI)       63        4.811     -34.37     34.71           -82.03
+  VIndex(3, :gfl₊csrc₊CC1_KP)       0.063    -4.018      1.364     4.243            161.3
+  VIndex(2, :gfm₊vsrc₊VC_KP)        0.952     3.747     -1.633     4.088           -23.54
+  VIndex(2, :gfm₊vsrc₊VC_KI)        317.4     3.114      7.204     7.849            66.63
+  VIndex(3, :gfl₊csrc₊VC_KP)        0.952    -3.082     -3.075     4.354           -135.1
+  VIndex(3, :gfl₊csrc₊CC2_KP)       0.189     2.703     -8.555     8.972           -72.47
+  VIndex(3, :gfl₊csrc₊VC_Fcoupl)    1        -2.605     -3.873     4.668           -123.9
+  VIndex(2, :gfm₊vsrc₊CC1_KP)       0.063     1.973     -0.1316    1.978           -3.815
+  VIndex(3, :gfl₊csrc₊PLL_Kp)       250       1.156     -10.53     10.6            -83.74
+  VIndex(2, :gfm₊vsrc₊VC_Fcoupl)    1         0.769      2.011     2.153            69.07
+  VIndex(2, :gfm₊vsrc₊CC1_KI)       63        0.7247     11.37     11.39            86.35
+  VIndex(3, :gfl₊csrc₊CC2_Fcoupl)   1         0.2578     0.1161    0.2828           24.25
+  VIndex(3, :gfl₊csrc₊CC1_Fcoupl)   1        -0.246     -0.2047    0.32            -140.2
+  VIndex(3, :gfl₊csrc₊PLL_Ki)       1000      0.2426     0.02734   0.2441           6.429
+  VIndex(3, :gfl₊cp_outer₊Pset)     0.85      0.2037    -0.6736    0.7038          -73.17
+  VIndex(3, :gfl₊csrc₊CC2_KI)       0.63      0.17       0.04694   0.1764           15.44
+  VIndex(2, :gfm₊vsrc₊CC1_Fcoupl)   1        -0.1101     0.04821   0.1202           156.3
+  VIndex(3, :gfl₊cp_outer₊Qset)    -0.02683  -0.0515     0.00197   0.05154          177.8
+  VIndex(2, :gfm₊droop₊τ_q)         0.1       0.03252    0.00556   0.03299          9.701
+  VIndex(2, :gfm₊droop₊Kq)          0.04     -0.03219   -0.007431  0.03304         -167</code></pre><h2 id="Gradient-Based-Controller-Optimization"><a class="docs-heading-anchor" href="#Gradient-Based-Controller-Optimization">Gradient-Based Controller Optimization</a><a id="Gradient-Based-Controller-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Gradient-Based-Controller-Optimization" title="Permalink"></a></h2><p>We optimize 7 GFL controller parameters to minimize voltage oscillation energy after a load step, evaluated at three grid strengths simultaneously. The gradients are computed via forward-mode AD through the ODE solver.</p><pre><code class="language-julia hljs">tunable_p = collect(VIndex(3, [
+    :gfl₊csrc₊PLL_Kp,
+    :gfl₊csrc₊PLL_Ki,
+    :gfl₊csrc₊CC1_KI,
+    :gfl₊csrc₊CC1_KP,
+    :gfl₊csrc₊CC2_F,
+    :gfl₊csrc₊CC2_KP,
+    :gfl₊csrc₊CC2_KI,
+]))</code></pre><h3 id="Loss-Function"><a class="docs-heading-anchor" href="#Loss-Function">Loss Function</a><a id="Loss-Function-1"></a><a class="docs-heading-anchor-permalink" href="#Loss-Function" title="Permalink"></a></h3><p>For each grid strength scenario, we simulate a 10% load increase at Bus 8 and measure the squared voltage deviation from the post-disturbance steady state at buses 2, 3, and 8. This penalizes oscillations (poor damping) while being insensitive to the steady-state shift caused by the load change.</p><pre><code class="language-julia hljs">opt_scales = [1.0, 1.5, 2.0]
+
+opt_s0s = [load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=s, verbose=false)[2] for s in opt_scales];
+
+opt_problems = [make_load_step_problem(s0; tspan=(-10.0, 1.0)) for s0 in opt_s0s];
+
+tpidx = SII.parameter_index(extract_nw(first(opt_s0s)), tunable_p)
+
+function generate_loss(problems, tpidx)
+    t_eval = range(0.0, 1.0; length=1000)
+    pdim_nw = NetworkDynamics.pdim(extract_nw(first(problems)))
+
+    loss = p -&gt; begin
+        total = 0.0
+        for prob in problems
+            p_new = zeros(eltype(p), pdim_nw)
+            p_new .= prob.p
+            p_new[tpidx] .= p
+
+            sol = solve(prob, Rodas5P(autodiff=true); p=p_new, saveat=t_eval)
+            !SciMLBase.successful_retcode(sol) &amp;&amp; return Inf
+
+            all_V = reduce(hcat, sol(t_eval; idxs=VIndex([2, 3, 8], :busbar₊u_mag)).u)
+            for col in 1:3
+                V_t = all_V[col, :]
+                total += sum((V_t .- V_t[end]).^2) / length(t_eval)
+            end
+        end
+        total
+    end
+    p0 = first(problems).p[tpidx]
+    loss, p0
+end
+
+loss_fn, p0_opt = generate_loss(opt_problems, tpidx);</code></pre><h3 id="Run-Optimization"><a class="docs-heading-anchor" href="#Run-Optimization">Run Optimization</a><a id="Run-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Run-Optimization" title="Permalink"></a></h3><p>Adam optimizer for up to 100 iterations (5 in fast-build mode). The slower descent gives better convergence and also produces smooth eigenvalue trajectory frames for the animation below.</p><pre><code class="language-julia hljs">optsol, opt_states = let states = Any[]
+    optf = Optimization.OptimizationFunction((x, _) -&gt; loss_fn(x), Optimization.AutoForwardDiff())
+    cb = (state, l) -&gt; begin
+        push!(states, state)
+        is_best = all(s -&gt; l &lt; s.objective, states[1:end-1])
+        print(&quot;Iteration $(state.iter): loss = $l&quot;)
+        is_best &amp;&amp; printstyled(&quot; ✓&quot;; color=:green)
+        println()
+        false
+    end
+    optprob = Optimization.OptimizationProblem(optf, p0_opt; callback=cb)
+    sol = @time Optimization.solve(optprob, Optimisers.Adam(5e-3); maxiters=100)
+    best = Inf
+    frames = filter(states) do s
+        s.objective &lt; best ? (best = s.objective; true) : false
+    end
+    sol, frames
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
+<span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
+<span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 15.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
+Iteration 1: loss = 3.153875416741413e-5<span class="sgr32"> ✓</span>
+Iteration 2: loss = 2.8047600362167865e-5<span class="sgr32"> ✓</span>
+Iteration 3: loss = 2.602299565614943e-5<span class="sgr32"> ✓</span>
+Iteration 4: loss = 2.46669462586891e-5<span class="sgr32"> ✓</span>
+Iteration 5: loss = 2.368499623228037e-5<span class="sgr32"> ✓</span>
+Iteration 6: loss = 2.2921445514644375e-5<span class="sgr32"> ✓</span>
+Iteration 7: loss = 2.230506895410328e-5<span class="sgr32"> ✓</span>
+Iteration 8: loss = 2.179975613052341e-5<span class="sgr32"> ✓</span>
+Iteration 9: loss = 2.1365266842835205e-5<span class="sgr32"> ✓</span>
+Iteration 10: loss = 2.098751480157486e-5<span class="sgr32"> ✓</span>
+Iteration 11: loss = 2.06604853415615e-5<span class="sgr32"> ✓</span>
+Iteration 12: loss = 2.036862319766212e-5<span class="sgr32"> ✓</span>
+Iteration 13: loss = 2.010928935497319e-5<span class="sgr32"> ✓</span>
+Iteration 14: loss = 1.9873428996430814e-5<span class="sgr32"> ✓</span>
+Iteration 15: loss = 1.9658967427917703e-5<span class="sgr32"> ✓</span>
+Iteration 16: loss = 1.9464529135459175e-5<span class="sgr32"> ✓</span>
+Iteration 17: loss = 1.9285509385434612e-5<span class="sgr32"> ✓</span>
+Iteration 18: loss = 1.9112092828244616e-5<span class="sgr32"> ✓</span>
+Iteration 19: loss = 1.8958876178376624e-5<span class="sgr32"> ✓</span>
+Iteration 20: loss = 1.8813589009716778e-5<span class="sgr32"> ✓</span>
+Iteration 21: loss = 1.867699588008052e-5<span class="sgr32"> ✓</span>
+Iteration 22: loss = 1.8551098599663437e-5<span class="sgr32"> ✓</span>
+Iteration 23: loss = 1.8427642211172745e-5<span class="sgr32"> ✓</span>
+Iteration 24: loss = 1.8317029330122482e-5<span class="sgr32"> ✓</span>
+Iteration 25: loss = 1.82033633788676e-5<span class="sgr32"> ✓</span>
+Iteration 26: loss = 1.8100940187196393e-5<span class="sgr32"> ✓</span>
+Iteration 27: loss = 1.8011977286194388e-5<span class="sgr32"> ✓</span>
+Iteration 28: loss = 1.791651498133026e-5<span class="sgr32"> ✓</span>
+Iteration 29: loss = 1.782330815428393e-5<span class="sgr32"> ✓</span>
+Iteration 30: loss = 1.7735710226719133e-5<span class="sgr32"> ✓</span>
+Iteration 31: loss = 1.7652968511131882e-5<span class="sgr32"> ✓</span>
+Iteration 32: loss = 1.7575062510231383e-5<span class="sgr32"> ✓</span>
+Iteration 33: loss = 1.7505453951278527e-5<span class="sgr32"> ✓</span>
+Iteration 34: loss = 1.7419101936216013e-5<span class="sgr32"> ✓</span>
+Iteration 35: loss = 1.7346590321199417e-5<span class="sgr32"> ✓</span>
+Iteration 36: loss = 1.7280330849444972e-5<span class="sgr32"> ✓</span>
+Iteration 37: loss = 1.7209806065148444e-5<span class="sgr32"> ✓</span>
+Iteration 38: loss = 1.7152573165276845e-5<span class="sgr32"> ✓</span>
+Iteration 39: loss = 1.7081618497809007e-5<span class="sgr32"> ✓</span>
+Iteration 40: loss = 1.7020458878122816e-5<span class="sgr32"> ✓</span>
+Iteration 41: loss = 1.6962147012501363e-5<span class="sgr32"> ✓</span>
+Iteration 42: loss = 1.690430298585694e-5<span class="sgr32"> ✓</span>
+Iteration 43: loss = 1.684844740409107e-5<span class="sgr32"> ✓</span>
+Iteration 44: loss = 1.679189561993734e-5<span class="sgr32"> ✓</span>
+Iteration 45: loss = 1.674344826404487e-5<span class="sgr32"> ✓</span>
+Iteration 46: loss = 1.6685298732263123e-5<span class="sgr32"> ✓</span>
+Iteration 47: loss = 1.6636739930654604e-5<span class="sgr32"> ✓</span>
+Iteration 48: loss = 1.658545672015164e-5<span class="sgr32"> ✓</span>
+Iteration 49: loss = 1.653307031173301e-5<span class="sgr32"> ✓</span>
+Iteration 50: loss = 1.6478419241032573e-5<span class="sgr32"> ✓</span>
+Iteration 51: loss = 1.643463226665208e-5<span class="sgr32"> ✓</span>
+Iteration 52: loss = 1.6388584045666203e-5<span class="sgr32"> ✓</span>
+Iteration 53: loss = 1.6341168180230106e-5<span class="sgr32"> ✓</span>
+Iteration 54: loss = 1.6288908556271803e-5<span class="sgr32"> ✓</span>
+Iteration 55: loss = 1.6257389144428927e-5<span class="sgr32"> ✓</span>
+Iteration 56: loss = 1.620960042040081e-5<span class="sgr32"> ✓</span>
+Iteration 57: loss = 1.616437677423619e-5<span class="sgr32"> ✓</span>
+Iteration 58: loss = 1.6121069866313286e-5<span class="sgr32"> ✓</span>
+Iteration 59: loss = 1.6086468372137507e-5<span class="sgr32"> ✓</span>
+Iteration 60: loss = 1.6042386526047107e-5<span class="sgr32"> ✓</span>
+Iteration 61: loss = 1.6002448822156903e-5<span class="sgr32"> ✓</span>
+Iteration 62: loss = 1.5959930034003204e-5<span class="sgr32"> ✓</span>
+Iteration 63: loss = 1.592334146436371e-5<span class="sgr32"> ✓</span>
+Iteration 64: loss = 1.5877152516059407e-5<span class="sgr32"> ✓</span>
+Iteration 65: loss = 1.5841214601408617e-5<span class="sgr32"> ✓</span>
+Iteration 66: loss = 1.580588429697141e-5<span class="sgr32"> ✓</span>
+Iteration 67: loss = 1.5769522974454118e-5<span class="sgr32"> ✓</span>
+Iteration 68: loss = 1.57355888159912e-5<span class="sgr32"> ✓</span>
+Iteration 69: loss = 1.569198219554729e-5<span class="sgr32"> ✓</span>
+Iteration 70: loss = 1.5658830050304706e-5<span class="sgr32"> ✓</span>
+Iteration 71: loss = 1.562448425066425e-5<span class="sgr32"> ✓</span>
+Iteration 72: loss = 1.5593521234107208e-5<span class="sgr32"> ✓</span>
+Iteration 73: loss = 1.555449046005657e-5<span class="sgr32"> ✓</span>
+Iteration 74: loss = 1.5519608301933708e-5<span class="sgr32"> ✓</span>
+Iteration 75: loss = 1.5486794294847808e-5<span class="sgr32"> ✓</span>
+Iteration 76: loss = 1.5449715684275878e-5<span class="sgr32"> ✓</span>
+Iteration 77: loss = 1.5419584239187525e-5<span class="sgr32"> ✓</span>
+Iteration 78: loss = 1.538283436819216e-5<span class="sgr32"> ✓</span>
+Iteration 79: loss = 1.5352298029791748e-5<span class="sgr32"> ✓</span>
+Iteration 80: loss = 1.5314475001906243e-5<span class="sgr32"> ✓</span>
+Iteration 81: loss = 1.528494406351787e-5<span class="sgr32"> ✓</span>
+Iteration 82: loss = 1.5254136857949722e-5<span class="sgr32"> ✓</span>
+Iteration 83: loss = 1.5225822544543014e-5<span class="sgr32"> ✓</span>
+Iteration 84: loss = 1.519069158608608e-5<span class="sgr32"> ✓</span>
+Iteration 85: loss = 1.5160519708872424e-5<span class="sgr32"> ✓</span>
+Iteration 86: loss = 1.5127770288069958e-5<span class="sgr32"> ✓</span>
+Iteration 87: loss = 1.509288861261582e-5<span class="sgr32"> ✓</span>
+Iteration 88: loss = 1.505996813580696e-5<span class="sgr32"> ✓</span>
+Iteration 89: loss = 1.5020187985619764e-5<span class="sgr32"> ✓</span>
+Iteration 90: loss = 1.4991375503575961e-5<span class="sgr32"> ✓</span>
+Iteration 91: loss = 1.4958596823967307e-5<span class="sgr32"> ✓</span>
+Iteration 92: loss = 1.4925288547441642e-5<span class="sgr32"> ✓</span>
+Iteration 93: loss = 1.4889284506613078e-5<span class="sgr32"> ✓</span>
+Iteration 94: loss = 1.4852100147550669e-5<span class="sgr32"> ✓</span>
+Iteration 95: loss = 1.4827649026493165e-5<span class="sgr32"> ✓</span>
+Iteration 96: loss = 1.478242075510907e-5<span class="sgr32"> ✓</span>
+Iteration 97: loss = 1.4747824817144435e-5<span class="sgr32"> ✓</span>
+Iteration 98: loss = 1.4716622554218774e-5<span class="sgr32"> ✓</span>
+Iteration 99: loss = 1.4666467464242323e-5<span class="sgr32"> ✓</span>
+Iteration 100: loss = 1.4619797838756331e-5<span class="sgr32"> ✓</span>
+Iteration 100: loss = 1.4619797838756331e-5
+152.402526 seconds (99.69 M allocations: 10.561 GiB, 3.64% gc time, 23.01% compilation time)</code></pre><h3 id="Optimized-Parameters"><a class="docs-heading-anchor" href="#Optimized-Parameters">Optimized Parameters</a><a id="Optimized-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Optimized-Parameters" title="Permalink"></a></h3><p>The optimization reveals that the inner current loop proportional gain (CC1_KP) needed a large increase, while the outer current loop gain (CC2_KP) and grid voltage feedforward (CC2_F) needed reduction. The PLL and CC1 integral gains were already near-optimal.</p><pre><code class="language-julia hljs">let io = IOBuffer()
+    println(io, &quot;symbol\toriginal\ttuned\tchange&quot;)
+    for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
+        pct = round(100 * (tuned - orig) / orig; digits=1)
+        println(io, &quot;$sym\t$orig\t$(round(tuned; sigdigits=4))\t$pct%&quot;)
+    end
+    str = String(take!(io))
+    write(joinpath(FIGPATH, &quot;p05_tuned_parameters.txt&quot;), str)
+    print(stdout, str)
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">symbol	original	tuned	change
+VIndex(3, :gfl₊csrc₊PLL_Kp)	250.0	250.1	0.1%
+VIndex(3, :gfl₊csrc₊PLL_Ki)	1000.0	1000.0	-0.0%
+VIndex(3, :gfl₊csrc₊CC1_KI)	63.0	63.15	0.2%
+VIndex(3, :gfl₊csrc₊CC1_KP)	0.063	0.1977	213.7%
+VIndex(3, :gfl₊csrc₊CC2_F)	1.0	0.7617	-23.8%
+VIndex(3, :gfl₊csrc₊CC2_KP)	0.189	0.2306	22.0%
+VIndex(3, :gfl₊csrc₊CC2_KI)	0.63	0.149	-76.4%</code></pre><h3 id="Before/After-Comparison:-Time-Domain"><a class="docs-heading-anchor" href="#Before/After-Comparison:-Time-Domain">Before/After Comparison: Time Domain</a><a id="Before/After-Comparison:-Time-Domain-1"></a><a class="docs-heading-anchor-permalink" href="#Before/After-Comparison:-Time-Domain" title="Permalink"></a></h3><p>We compare the load step response with default vs optimized parameters at all three grid strengths. The oscillations at Zscale=2.0 are dramatically reduced.</p><pre><code class="language-julia hljs">sols_default = [solve(prob, Rodas5P()) for prob in opt_problems];
+
+sols_optimized = let p_opt = optsol.u
+    map(opt_problems) do prob
+        p_new = copy(prob.p)
+        p_new[tpidx] .= p_opt
+        solve(prob, Rodas5P(); p=p_new)
+    end
+end;
+
+function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8], labels=[&quot;GFM Bus&quot;, &quot;GFL Bus&quot;, &quot;Disturbed Load Bus&quot;])
+    fig = Figure(size=theme_size(800, length(scales) * 250))
+    nrows = length(scales)
+    for (row, (s, sb, sa)) in enumerate(zip(scales, sols_before, sols_after))
+        ax1 = Axis(fig[row, 1]; title=L&quot;$Z$ scale=%$s — default&quot;, ylabel=&quot;V [pu]&quot;)
+        ax2 = Axis(fig[row, 2]; title=L&quot;$Z$ scale=%$s — optimized&quot;, ylabel=&quot;V [pu]&quot;)
+        if row == nrows
+            ax1.xlabel = &quot;Time [s]&quot;
+            ax2.xlabel = &quot;Time [s]&quot;
+        else
+            hidexdecorations!(ax1; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+            hidexdecorations!(ax2; label=true, ticklabels=false, ticks=false, grid=false, minorgrid=false, minorticks=false)
+        end
+        ts_b = refine_timeseries(sb.t)
+        ts_a = refine_timeseries(sa.t)
+        for (j, (bus, label)) in enumerate(zip(buses, labels))
+            lines!(ax1, ts_b, sb(ts_b, idxs=VIndex(bus, :busbar₊u_mag)).u;
+                color=Cycled(j), label)
+            lines!(ax2, ts_a, sa(ts_a, idxs=VIndex(bus, :busbar₊u_mag)).u;
+                color=Cycled(j), label)
+        end
+        xlms = (-0.01, 0.5)
+        ylms = (0.939, 1.035)
+        xlims!(ax1, xlms...); xlims!(ax2, xlms...)
+        ylims!(ax1, ylms...); ylims!(ax2, ylms...)
+        row == 1 &amp;&amp; axislegend(ax1; position=:rb)
+    end
+    fig
+end
+
+plot_before_after(sols_default, sols_optimized, opt_scales)</code></pre><img src="3f561752.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme_wide(3/7)) do
+        plot_before_after(sols_default, sols_optimized, opt_scales)
+    end
+    save(joinpath(FIGPATH, &quot;04_load_step_before_after.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="262ffdf2.png" alt="Example block output"/></div>
+</details><h3 id="Before/After-Comparison:-Eigenvalue-Trajectories"><a class="docs-heading-anchor" href="#Before/After-Comparison:-Eigenvalue-Trajectories">Before/After Comparison: Eigenvalue Trajectories</a><a id="Before/After-Comparison:-Eigenvalue-Trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Before/After-Comparison:-Eigenvalue-Trajectories" title="Permalink"></a></h3><p>We recompute eigenvalues with optimized parameters at each grid strength and overlay them with the baseline. The critical mode should have moved left (more damping).</p><pre><code class="language-julia hljs">function reinitialize_with_params(s0, tunable_p, p_new)
+    _nw = extract_nw(s0)
+    nw = Network(_nw)
+    for (pidx, p) in zip(tunable_p, p_new)
+        set_default!(nw[VIndex(pidx.compidx)], pidx.subidx, p)
+    end
+    initialize_from_pf!(nw; tol=1e-7, nwtol=1e-5, verbose=false, warn=false)
+end</code></pre><details class="admonition is-details">
+<summary class="admonition-header">Participation factors and sensitivity after optimization</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let io = IOBuffer()
+    s0_nom_opt  = reinitialize_with_params(s0_nom,  tunable_p, optsol.u)
+    s0_crit_opt = reinitialize_with_params(s0_crit, tunable_p, optsol.u)
+    idx_crit_opt = findmin(λ -&gt; abs(λ - critical_mode), jacobian_eigenvals(s0_crit_opt) ./ (2π))[2]
+    println(io, &quot;### Participation Factors — After Optimization ###&quot;)
+    println(io)
+    println(io, &quot;=== Nominal grid strength (Zscale=1.0) ===&quot;)
+    show_participation_factors(io, s0_nom_opt; modes=[cmode], threshold=0.05)
+    println(io)
+    println(io, &quot;=== Near instability (Zscale=$scale_critical) ===&quot;)
+    show_participation_factors(io, s0_crit_opt; modes=idx_crit_opt, threshold=0.05)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, &quot;p03_participation_factors_optimized.txt&quot;), str)
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">### Participation Factors — After Optimization ###
+
+=== Nominal grid strength (Zscale=1.0) ===
+Participation Factors:
+  Mode  Real (Hz)  Imag (Hz)  Factor   State
+  ───────────────────────────────────────────────────────────────────
+  54    -7.78       24.47     0.1411   VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
+                              0.1153   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
+                              0.1114   VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
+                              0.1005   VIndex(2, :gfm₊vsrc₊vc₊γ_q)
+                              0.09098  VIndex(3, :gfl₊csrc₊cc1₊γ_q)
+                              0.08546  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.07893  VIndex(2, :gfm₊vsrc₊vc₊γ_d)
+                              0.05307  VIndex(3, :gfl₊csrc₊vc₊γ_d)
+
+=== Near instability (Zscale=2.25) ===
+Participation Factors:
+  Mode  Real (Hz)  Imag (Hz)  Factor   State
+  ───────────────────────────────────────────────────────────────────
+  54    -5.75      -22.76     0.1334   VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
+                              0.1274   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
+                              0.1167   VIndex(2, :gfm₊vsrc₊vc₊γ_q)
+                              0.1022   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
+                              0.09461  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.07644  VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
+                              0.06639  VIndex(2, :gfm₊vsrc₊vc₊γ_d)
+                              0.06425  VIndex(3, :gfl₊csrc₊vc₊γ_d)</code></pre><pre><code class="language-julia hljs">let io = IOBuffer()
+    s0_nom_opt  = reinitialize_with_params(s0_nom,  tunable_p, optsol.u)
+    s0_crit_opt = reinitialize_with_params(s0_crit, tunable_p, optsol.u)
+    idx_crit_opt = findmin(λ -&gt; abs(λ - critical_mode), jacobian_eigenvals(s0_crit_opt) ./ (2π))[2]
+    println(io, &quot;### Eigenvalue Sensitivities — After Optimization ###&quot;)
+    println(io)
+    println(io, &quot;=== Nominal grid strength (Zscale=1.0) ===&quot;)
+    show_eigenvalue_sensitivity(io, s0_nom_opt, cmode; params=params_of_interest, sortby=:realmag)
+    println(io)
+    println(io, &quot;=== Near instability (Zscale=$scale_critical) ===&quot;)
+    show_eigenvalue_sensitivity(io, s0_crit_opt, idx_crit_opt; params=params_of_interest, sortby=:realmag)
+    str = String(take!(io))
+    print(stdout, str)
+    write(joinpath(FIGPATH, &quot;p04_sensitivities_optimized.txt&quot;), str)
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
+<span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
+<span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 23.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
+### Eigenvalue Sensitivities — After Optimization ###
+
+=== Nominal grid strength (Zscale=1.0) ===
+Eigenvalue Sensitivity for mode 54: λ = -7.78 ± 24.47j Hz
+  Parameter                        Value    Real (Hz)  Imag (Hz)  |p·∂λ/∂p| (Hz)  ∠ (deg)
+  ───────────────────────────────────────────────────────────────────────────────────────
+  VIndex(3, :gfl₊csrc₊CC1_KI)       63.15   -4.04       8.166     9.11             116.3
+  VIndex(3, :gfl₊csrc₊CC2_F)        0.7617   3.23       1.267     3.47             21.42
+  VIndex(2, :gfm₊vsrc₊VC_KP)        0.952   -2.684     -0.0439    2.684           -179.1
+  VIndex(3, :gfl₊csrc₊PLL_Kp)       250.1   -1.864      1.933     2.686            134
+  VIndex(2, :gfm₊vsrc₊VC_KI)        317.4    1.594      5.313     5.547            73.3
+  VIndex(3, :gfl₊csrc₊VC_Fcoupl)    1       -1.38       0.04597   1.381            178.1
+  VIndex(3, :gfl₊csrc₊CC1_KP)       0.1977  -1.253     -2.837     3.101           -113.8
+  VIndex(2, :gfm₊vsrc₊CC1_KP)       0.063   -1.199     -0.3841    1.259           -162.2
+  VIndex(3, :gfl₊csrc₊VC_KP)        0.952   -1.138     -0.7354    1.355           -147.1
+  VIndex(3, :gfl₊csrc₊CC2_KP)       0.2306  -0.8452     2.118     2.28             111.8
+  VIndex(3, :gfl₊csrc₊VC_KI)        317.4   -0.7146     3.339     3.415            102.1
+  VIndex(3, :gfl₊cp_outer₊Pset)     0.85    -0.1452     0.3693    0.3968           111.5
+  VIndex(3, :gfl₊cp_outer₊Qset)    -0.1086  -0.07002   -0.03707   0.07923         -152.1
+  VIndex(3, :gfl₊csrc₊CC1_Fcoupl)   1       -0.06612   -0.01882   0.06875         -164.1
+  VIndex(3, :gfl₊csrc₊PLL_Ki)       1000     0.05964    0.02952   0.06655          26.33
+  VIndex(3, :gfl₊csrc₊CC2_Fcoupl)   1        0.04828    0.01284   0.04996          14.89
+  VIndex(2, :gfm₊vsrc₊VC_Fcoupl)    1       -0.04703    1.416     1.417            91.9
+  VIndex(3, :gfl₊csrc₊CC2_KI)       0.149    0.03622    0.188     0.1915           79.1
+  VIndex(2, :gfm₊vsrc₊CC1_KI)       63      -0.01854    7.803     7.803            90.14
+
+=== Near instability (Zscale=2.25) ===
+Eigenvalue Sensitivity for mode 54: λ = -5.75 ± 22.76j Hz
+  Parameter                        Value     Real (Hz)  Imag (Hz)  |p·∂λ/∂p| (Hz)  ∠ (deg)
+  ────────────────────────────────────────────────────────────────────────────────────────
+  VIndex(3, :gfl₊csrc₊CC1_KI)       63.15    -6.87      -9.619     11.82           -125.5
+  VIndex(3, :gfl₊csrc₊CC2_F)        0.7617    4.866     -2.999     5.716           -31.64
+  VIndex(2, :gfm₊vsrc₊VC_KI)        317.4     4.028     -4.997     6.419           -51.13
+  VIndex(2, :gfm₊vsrc₊CC1_KI)       63        3.371     -6.539     7.357           -62.72
+  VIndex(2, :gfm₊vsrc₊VC_KP)        0.952    -2.58      -1.186     2.84            -155.3
+  VIndex(3, :gfl₊csrc₊PLL_Kp)       250.1    -2.431     -2.317     3.359           -136.4
+  VIndex(3, :gfl₊csrc₊VC_KI)        317.4    -2.046     -4.18      4.654           -116.1
+  VIndex(3, :gfl₊csrc₊VC_Fcoupl)    1        -1.936      0.2541    1.952            172.5
+  VIndex(3, :gfl₊csrc₊CC2_KP)       0.2306   -1.633     -2.623     3.09            -121.9
+  VIndex(3, :gfl₊csrc₊VC_KP)        0.952    -1.176      1.233     1.704            133.6
+  VIndex(2, :gfm₊vsrc₊CC1_KP)       0.063    -1.057     -0.246     1.085           -166.9
+  VIndex(3, :gfl₊csrc₊CC1_KP)       0.1977   -0.8809     3.555     3.662            103.9
+  VIndex(2, :gfm₊vsrc₊VC_Fcoupl)    1         0.5592    -1.335     1.447           -67.27
+  VIndex(3, :gfl₊cp_outer₊Pset)     0.85     -0.2608    -0.393     0.4717          -123.6
+  VIndex(3, :gfl₊csrc₊PLL_Ki)       1000      0.07703   -0.04851   0.09103         -32.2
+  VIndex(3, :gfl₊csrc₊CC1_Fcoupl)   1        -0.0648     0.03741   0.07483          150
+  VIndex(3, :gfl₊csrc₊CC2_Fcoupl)   1         0.05978   -0.02756   0.06582         -24.75
+  VIndex(3, :gfl₊cp_outer₊Qset)    -0.02683  -0.02332    0.0212    0.03152          137.7
+  VIndex(3, :gfl₊csrc₊CC2_KI)       0.149     0.02087   -0.2735    0.2743          -85.64</code></pre></div>
+</details><pre><code class="language-julia hljs"># Pre-load base systems across the sweep once — reused for every eigenvalue_tracks call.
+eig_sweep_scales = range(1.0, 4.0; length=25)
+eig_sweep_s0s = [rebuild_with_scale(s0_mix, Float64(s))[2] for s in eig_sweep_scales];
+
+&quot;&quot;&quot;
+    compute_eig_tracks(popt; scales, base_s0s) -&gt; (tracks, scales_vec)
+
+Reinitialize the mixed IEEE-9 system with controller parameters `popt` at each
+`Zscale` in `scales` and return the matched eigenvalue track matrix together with
+the corresponding scale vector. Separating computation from plotting lets callers
+draw the same tracks onto multiple axes without redundant reinitialization.
+&quot;&quot;&quot;
+function compute_eig_tracks(popt;
+        scales   = eig_sweep_scales,
+        base_s0s = eig_sweep_s0s)
+    states = OrderedDict{Float64, NWState}()
+    for (s, s0) in zip(scales, base_s0s)
+        states[Float64(s)] = reinitialize_with_params(s0, tunable_p, popt)
+    end
+    find_tracks(states), collect(keys(states))
+end
+tracks_default = compute_eig_tracks(p0_opt)
+tracks_optimized = compute_eig_tracks(optsol.u)
+
+function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt);
+        ev_pairs=Pair{Int,Int}[], ev_pair_gap=0.02)
+    mask = sv_def .&gt;= 1.0
+
+    fig = Figure(size=theme_size(600, 500))
+    ax = Axis(fig[1, 1]; xlabel=&quot;Real Part [Hz]&quot;, ylabel=&quot;Imaginary Part [Hz]&quot;,
+        title=&quot;Optimized EV Paths under Varying Grid Strength&quot;,
+    )
+
+    plot_tracks(tr_def[:, mask], sv_def[mask]; ax, faint=true)
+    plot_tracks(tr_opt, sv_opt; ax, xlims=xlims_full, ylims=ylims_full, colorbar=false)
+
+    if !isempty(ev_pairs)
+        baseline_def = argmin(abs.(sv_def .- 1.0))
+        baseline_opt = argmin(abs.(sv_opt .- 1.0))
+        Δx = xlims_full[2] - xlims_full[1]
+        Δy = ylims_full[2] - ylims_full[1]
+        for (i_old, i_new) in ev_pairs
+            old_ev = tr_def[i_old, baseline_def]
+            new_ev = tr_opt[i_new, baseline_opt]
+            diff = new_ev - old_ev
+            dir_n = complex(real(diff)/Δx, imag(diff)/Δy)
+            dir_n /= abs(dir_n)
+            offset = complex(ev_pair_gap * real(dir_n) * Δx, ev_pair_gap * imag(dir_n) * Δy)
+            start_ev = old_ev + offset
+            end_ev   = new_ev - offset
+            for sign in (+1, -1)
+                arrows2d!(ax,
+                    [(real(start_ev), sign * imag(start_ev))],
+                    [(real(end_ev),   sign * imag(end_ev))];
+                    argmode=:endpoint, shaftwidth=1, tiplength=3, tipwidth=3)
+            end
+        end
+    end
+
+    log_keys = log.(sv_opt)
+    pos_max = max(maximum(log_keys), 0.0)
+    neg_max = max(-minimum(log_keys), 0.0)
+    kmin, kmax = minimum(sv_opt), maximum(sv_opt)
+    cb_low  = neg_max &gt; 0 ? -1.0 : 0.0
+    cb_high = pos_max &gt; 0 ?  1.0 : 0.0
+    cb_ticks = filter(t -&gt; cb_low &lt;= t[1] &lt;= cb_high, [
+        (-1.0, string(kmin)), (0.0, &quot;1.0&quot;), (1.0, string(kmax))])
+    pos_only_cmap = Makie.resample_cmap(:bluesreds, 256)[129:end]
+    cb_cmap = neg_max &gt; 0 ? :bluesreds : pos_only_cmap
+    Colorbar(fig[1, 2]; colormap=cb_cmap, colorrange=(cb_low, cb_high),
+        ticks=(first.(cb_ticks), last.(cb_ticks)),
+        width=4, vertical=true)
+    fig
+end
+
+plot_optimized_tracks(tracks_default, tracks_optimized)</code></pre><img src="2ea5c97a.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme(2/3)) do
+        plot_optimized_tracks(tracks_default, tracks_optimized)
+    end
+    save(joinpath(FIGPATH, &quot;05_eigenvalue_tracks_before_after.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="bbbbff8c.png" alt="Example block output"/></div>
+</details><h3 id="Validation:-Previously-Unstable-Scenario"><a class="docs-heading-anchor" href="#Validation:-Previously-Unstable-Scenario">Validation: Previously Unstable Scenario</a><a id="Validation:-Previously-Unstable-Scenario-1"></a><a class="docs-heading-anchor-permalink" href="#Validation:-Previously-Unstable-Scenario" title="Permalink"></a></h3><p>We test the optimized parameters at Zscale=2.25, which was unstable with default parameters. If the system is now stable, the optimization has extended the stability boundary.</p><pre><code class="language-julia hljs">function plot_strong_disturbance()
+    scale_def = 2.25
+    scale_opt = 4.0
+    ΔG_factor=1.3
+    tspan=(-1.0, 1.1)
+
+    s0_test = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_def, verbose=false)[2]
+    prob_default = make_load_step_problem(s0_test; ΔG_factor, tspan)
+
+    s0_test_opt = load_ieee9bus_emt(; gfm=true, gfl=true, Zscale=scale_opt, verbose=false)[2]
+    s0_tuned = reinitialize_with_params(s0_test_opt, tunable_p, optsol.u)
+    prob_tuned = make_load_step_problem(s0_tuned; ΔG_factor, tspan)
+
+    sol_def = solve(prob_default, Rodas5P())
+    sol_tun = solve(prob_tuned, Rodas5P())
+
+    fig = Figure(size=theme_size(800, 500))
+    ax1 = Axis(fig[1, 1]; title=L&quot;$Z$ scale=%$scale_def (default parameters)&quot;, ylabel=&quot;V [pu]&quot;)
+    ax2 = Axis(fig[2, 1]; title=L&quot;$Z$ scale=%$scale_opt (optimized parameters)&quot;, xlabel=&quot;Time [s]&quot;, ylabel=&quot;V [pu]&quot;)
+
+    for (ax, sol) in [(ax1, sol_def), (ax2, sol_tun)]
+        ts = refine_timeseries(sol.t)
+        for (j, bus) in enumerate([2, 3, 8])
+            lines!(ax, ts, sol(ts, idxs=VIndex(bus, :busbar₊u_mag)).u;
+                color=Cycled(j), label=&quot;Bus $bus&quot;)
+        end
+        xlims!(ax, -0.1, sol.t[end])
+    end
+    axislegend(ax2; position=:rb)
+    fig
+end
+
+plot_strong_disturbance()</code></pre><img src="793fcfbc.png" alt="Example block output"/><details class="admonition is-details">
+<summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
+<div class="admonition-body"><pre><code class="language-julia hljs">let
+    fig = with_theme(ieee_theme(2/3)) do
+        plot_strong_disturbance()
+    end
+    save(joinpath(FIGPATH, &quot;06_strong_disturbance_response.pdf&quot;), fig; pt_per_unit=1)
+    fig
+end</code></pre><img src="149b625f.png" alt="Example block output"/></div>
+</details><h2 id="Eigenvalue-Evolution-Animation"><a class="docs-heading-anchor" href="#Eigenvalue-Evolution-Animation">Eigenvalue Evolution Animation</a><a id="Eigenvalue-Evolution-Animation-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Evolution-Animation" title="Permalink"></a></h2><p>Replay the optimisation trajectory: each frame corresponds to an improving iterate captured in <code>opt_states</code> (strictly monotone in loss), so the animation shows only the successful descent.</p><pre><code class="language-julia hljs"># Pre-compute tracks for every animation frame — expensive, done once.
+anim_frames = let N = length(opt_states)
+    map(enumerate(opt_states)) do (i, s)
+        Base.isinteractive() &amp;&amp; println(&quot;Computing tracks $i/$N (iter $(s.iter))...&quot;)
+        tracks, sv = compute_eig_tracks(s.u)
+        (; s, tracks, sv)
+    end
+end</code></pre><h3 id="Animation:-Voltage-Response-Eigenvalue-Tracks-(Zscale2.0)"><a class="docs-heading-anchor" href="#Animation:-Voltage-Response-Eigenvalue-Tracks-(Zscale2.0)">Animation: Voltage Response + Eigenvalue Tracks (Zscale=2.0)</a><a id="Animation:-Voltage-Response-Eigenvalue-Tracks-(Zscale2.0)-1"></a><a class="docs-heading-anchor-permalink" href="#Animation:-Voltage-Response-Eigenvalue-Tracks-(Zscale2.0)" title="Permalink"></a></h3><p>LHS shows the load-step voltage response at the most challenging training scenario (Zscale=2.0); RHS shows the eigenvalue tracks — linking mode damping to the time-domain oscillations as parameters evolve.</p><pre><code class="language-julia hljs">let
+    prob = last(opt_problems)
+    fig = Figure(size=theme_size(900, 500))
+    ax_v   = Axis(fig[1, 1]; xlabel=&quot;Time [s]&quot;, ylabel=&quot;Voltage [pu]&quot;)
+    ax_eig = Axis(fig[1, 2]; xlabel=&quot;Real [Hz]&quot;, ylabel=&quot;Imag [Hz]&quot;)
+    ts = range(0.0, 0.5; length=500)
+    N = length(anim_frames)
+    record(fig, &quot;voltage_eigenvalue_evolution.mp4&quot;, enumerate(anim_frames); framerate=10) do (i, f)
+        Base.isinteractive() &amp;&amp; println(&quot;Rendering frame $i/$N...&quot;)
+        empty!(ax_v); empty!(ax_eig)
+        label = &quot;iter $(f.s.iter), loss=$(round(f.s.objective; sigdigits=3))&quot;
+        ax_v.title[]   = &quot;Zscale=2.0 — $label&quot;
+        ax_eig.title[] = label
+        p_new = copy(prob.p)
+        p_new[tpidx] .= f.s.u
+        sol = solve(prob, Rodas5P(); p=p_new)
+        for (j, bus) in enumerate([2, 3, 8])
+            lines!(ax_v, ts, sol(ts; idxs=VIndex(bus, :busbar₊u_mag)).u;
+                color=Cycled(j), label=&quot;Bus $bus&quot;)
+        end
+        xlms = (-0.01, 0.5)
+        ylms = (0.926, 1.045)
+        xlims!(ax_v, xlms...)
+        ylims!(ax_v, ylms...)
+        i == 1 &amp;&amp; axislegend(ax_v; position=:rb)
+        plot_tracks(f.tracks, f.sv; ax=ax_eig, xlims=xlims_full, ylims=ylims_full)
+    end
+end</code></pre><p><video src="../voltage_eigenvalue_evolution.mp4" controls="true" title="optimization video"><a href="../voltage_eigenvalue_evolution.mp4">optimization video</a></video></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 14 April 2026 14:38">Tuesday 14 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
