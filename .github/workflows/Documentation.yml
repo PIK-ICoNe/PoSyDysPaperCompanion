@@ -33,7 +33,6 @@ jobs:
           using Pkg
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
-      - uses: hexaeder/julia-buildpkg@main
       - name: Build docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
