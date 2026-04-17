@@ -21,7 +21,7 @@ doc = makedocs(;
     ],
     remotes=nothing,
     format=Documenter.HTML(;
-        canonical="https://pik-icone.github.io/PoSyDysPaperCompanion",
+        canonical="https://PIK-ICoNe.github.io/PoSyDysPaperCompanion",
         edit_link="main",
         size_threshold=2_000_000,
         size_threshold_warn=1_000_000,
@@ -33,7 +33,7 @@ doc = makedocs(;
 
 if haskey(ENV, "GITHUB_ACTIONS")
     deploydocs(;
-        repo="github.com/pik-icone/PoSyDysPaperCompanion.git",
+        repo="github.com/PIK-ICoNe/PoSyDysPaperCompanion.git",
         devbranch="main",
         push_preview=true,
     )
