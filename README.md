@@ -1,5 +1,7 @@
 # PoSyDyS 2026 — Paper Companion
 
+[![DOI](https://zenodo.org/badge/1210280171.svg)](https://doi.org/10.5281/zenodo.19629097)
+
 This site accompanies the paper **"Differentiable Simulation for Power System Dynamics"**
 submitted to PoSyDyS 2026.
 

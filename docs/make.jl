@@ -12,7 +12,8 @@ Literate.script(script, outdir; keep_comments=true)
 
 doc = makedocs(;
     root=joinpath(pkgdir(PoSyDysPaperCompanion), "docs"),
-    sitename="PoSyDysPaperCompanion.jl",
+    sitename="PoSyDysPaperCompanion",
+    authors="Hans Würfel and contributors",
     modules=[PoSyDysPaperCompanion],
     pages=[
         "Home" => "index.md",
@@ -20,7 +21,7 @@ doc = makedocs(;
     ],
     remotes=nothing,
     format=Documenter.HTML(;
-        canonical="https://hexaeder.github.io/PoSyDysPaperCompanion.jl",
+        canonical="https://pik-icone.github.io/PoSyDysPaperCompanion",
         edit_link="main",
         size_threshold=2_000_000,
         size_threshold_warn=1_000_000,
@@ -32,7 +33,7 @@ doc = makedocs(;
 
 if haskey(ENV, "GITHUB_ACTIONS")
     deploydocs(;
-        repo="github.com/hexaeder/PoSyDysPaperCompanion.jl.git",
+        repo="github.com/pik-icone/PoSyDysPaperCompanion.git",
         devbranch="main",
         push_preview=true,
     )
