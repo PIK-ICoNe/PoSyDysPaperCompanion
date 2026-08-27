@@ -11,16 +11,18 @@ export rebuild_with_scale
 
 include("models.jl")
 
+# PD5 reads the global per-unit bases when a model is constructed, so pin them once at
+# load time. Everything in here is the IEEE 9-bus: 60 Hz on a 100 MVA base.
+function __init__()
+    set_fbase!(60)
+    set_Sbase!(100)
+end
+
 function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name, vidx)
     @named machine = SauerPaiMachine(;
         stator_dynamics=true,
         vf_input=true,
         τ_m_input=true,
-        S_b=100,
-        V_b=1,
-        Sn=100,
-        Vn=1,
-        ω_b=2π*60,
         R_s=0.000125,
         T″_d0=0.01,
         T″_q0=0.01,
@@ -41,7 +43,7 @@ function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name
     injector = CompositeInjector([machine, avr, gov]; name=:generator)
 
     # add a dynamic shunt to mimic the terminal capacitance of the machine
-    @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
+    @named shunt = DynamicCShunt(B=1e-5)
 
     # generate the MTKBus (i.e. the MTK model containg the busbar and the injector)
     dynbus = compile_bus(MTKBus(injector, shunt); current_source=false, vidx)
@@ -52,12 +54,14 @@ function get_machine_bus(; machine_p=(;), avr_p=(;), gov_p=(;), pf=nothing, name
 end
 
 function get_gfm_bus(; name, vidx, pf=nothing)
+    # PD5 respells the droop gain as a dimensionless pu droop and picked new defaults;
+    # these are the values the paper was produced with.
     @named gfm = ComposableInverter.DroopInverter(
         filter_type=:LCL,
-        vsrc₊ω0 = 2π*60,
-        droop₊ω0 = 2π*60,
+        droop₊Kp = 0.4/(2π*60),
+        droop₊Kq = 0.04,
     )
-    @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
+    @named shunt = DynamicCShunt(B=1e-5)
 
     dynbus = compile_bus(MTKBus(gfm, shunt); name=name, vidx=vidx)
 
@@ -73,9 +77,9 @@ function get_gfm_bus(; name, vidx, pf=nothing)
 end
 
 function get_gfl_bus(; name, vidx, pf=nothing)
-    @named gfl = ConstantPowerInverter(; csrc₊ω0=2π*60)
+    @named gfl = ConstantPowerInverter()
     # add a dynamic shunt to mimic the terminal capacitance of the machine
-    @named shunt = DynamicCShunt(ω0=2π*60, C=1e-5)
+    @named shunt = DynamicCShunt(B=1e-5)
 
     dynbus = compile_bus(MTKBus(gfl, shunt); name=name, vidx=vidx)
     if !isnothing(pf)
@@ -85,7 +89,7 @@ function get_gfl_bus(; name, vidx, pf=nothing)
 end
 
 function get_RL_line(; R, X, src, dst, name)
-    @named rlbranch = DynamicSeriesRLBranch(; R, L=X, ω0=2π*60)
+    @named rlbranch = DynamicSeriesRLBranch(; R, X)
     dyn = compile_line(MTKLine(rlbranch), src=src, dst=dst, name=name)
     @named rlbranch_static = PiLine(; R, X, B_src=0, B_dst=0, G_src=0, G_dst=0)
     static = compile_line(MTKLine(rlbranch_static), src=src, dst=dst, name=Symbol(name, "_static"))
@@ -95,7 +99,7 @@ end
 
 function get_load_bus(; P, Q, B, name, vidx)
     @named load = ConstantYLoad()  # G, B free → set by init
-    @named shunt = DynamicCShunt(; ω0=2π*60, C=B)
+    @named shunt = DynamicCShunt(; B)
 
     dynmod = compile_bus(MTKBus(load, shunt); name, vidx)
 
@@ -109,9 +113,9 @@ function get_load_bus(; P, Q, B, name, vidx)
     dynmod
 end
 function get_junction_bus(; B, name, vidx)
-    @named shunt = DynamicCShunt(ω0=2π*60)
+    @named shunt = DynamicCShunt()
     dyn = compile_bus(MTKBus(shunt); name=name, vidx=vidx)
-    set_guess!(dyn, :shunt₊C, 1e-5)
+    set_guess!(dyn, :shunt₊B, 1e-5)
     pfmod = compile_bus(MTKBus(StaticShunt(B=B, G=0; name=:shunt)))
     set_pfmodel!(dyn, pfmod)
     dyn
@@ -203,7 +207,7 @@ function rebuild_with_scale(thing, scale)
             R, X = scale*R, scale*X
         end
         set_default!(m, :rlbranch₊R, R)
-        set_default!(m, :rlbranch₊L, X)
+        set_default!(m, :rlbranch₊X, X)
         pfmod = get_pfmodel(m)
         set_default!(pfmod, :rlbranch_static₊R, R)
         set_default!(pfmod, :rlbranch_static₊X, X)
@@ -232,11 +236,6 @@ function load_ieee9bus()
         @named machine = SauerPaiMachine(;
             vf_input=true,
             τ_m_input=true,
-            S_b=100,
-            V_b=1,
-            Sn=100,
-            Vn=1,
-            ω_b=2π*60,
             R_s=0.000125,
             T″_d0=0.01,
             T″_q0=0.01,
