@@ -12,7 +12,8 @@ using CairoMakie
 using LinearAlgebra
 using OrderedCollections: OrderedDict
 using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
-using Optimization, Optimisers, OptimizationOptimisers</code></pre><details class="admonition is-details">
+using Optimization, Optimisers, OptimizationOptimisers</code></pre><p>PowerDynamics reads the global per-unit bases when a component is constructed, so they have to be set before any model is built. The IEEE 9-bus runs at 60 Hz on a 100 MVA base. (<code>PoSyDysPaperCompanion</code> also does this on load, so the helpers work standalone.)</p><pre><code class="language-julia hljs">set_fbase!(60)
+set_Sbase!(100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100.0</code></pre><details class="admonition is-details">
 <summary class="admonition-header">IEEE Conference Figure Theme (CairoMakie)</summary>
 <div class="admonition-body"><p>Figure Export Specifications for IEEE Conference (IEEEtran, conference mode)</p><p><strong>Column widths</strong> (from IEEEtran.cls, letter paper, 0.625 in margins, 0.25 in column sep):</p><ul><li>Single-column figure → <code>\columnwidth</code> = 3.5 in = 88.9 mm = 252 pt</li><li>Double-column figure → <code>\textwidth</code>   = 7.25 in = 184.2 mm = 522 pt</li></ul><p><strong>Format</strong>: line art → vector PDF (<code>pt_per_unit=1</code>); raster → PNG at <code>px_per_unit=8</code> (≈576 DPI).</p><p>Two <code>with_theme</code> helpers are defined: <code>ieee_theme()</code> (single-col) and <code>ieee_theme_wide()</code> (double-col). Both use <code>theme_latexfonts()</code> so fonts match the LaTeX document.</p><p>Canonical figure dimensions in Makie pt units (1 pt = 1 CSS/PDF point).</p><pre><code class="language-julia hljs">FIGPATH = joinpath(pkgdir(PoSyDysPaperCompanion), &quot;paper&quot;, &quot;figures&quot;)
 mkpath(FIGPATH)
@@ -80,7 +81,7 @@ end
 nothing #hide #hmd</code></pre></div>
 </details><h2 id="The-Test-System"><a class="docs-heading-anchor" href="#The-Test-System">The Test System</a><a id="The-Test-System-1"></a><a class="docs-heading-anchor-permalink" href="#The-Test-System" title="Permalink"></a></h2><p>We build three variants of the IEEE 9-bus:</p><ul><li><strong>All-SG (RMS)</strong>: classical SauerPai machines with AVR and governor (static PiLines)</li><li><strong>All-SG (EMT)</strong>: same machines but with stator dynamics and dynamic RL lines</li><li><strong>Mixed (EMT)</strong>: Bus 1 = SG, Bus 2 = GFM droop inverter, Bus 3 = GFL current source</li></ul><p>The mixed system is our main study object. Varying the line impedance scaling parameter <code>Zscale</code> simulates different grid strengths.</p><pre><code class="language-julia hljs">nw_rms, s0_rms = load_ieee9bus()
 nw_emt, s0_emt = load_ieee9bus_emt()
-nw_mix, s0_mix = load_ieee9bus_emt(gfm=true, gfl=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Network with 76 states and 158 parameters
+nw_mix, s0_mix = load_ieee9bus_emt(gfm=true, gfl=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Network with 76 states and 216 parameters
  ├─ 9 vertices (5 unique types)
  └─ 9 edges (1 unique type)
 Edge-Aggregation using SequentialAggregator(+)</code></pre><h3 id="Power-Flow-Validation"><a class="docs-heading-anchor" href="#Power-Flow-Validation">Power Flow Validation</a><a id="Power-Flow-Validation-1"></a><a class="docs-heading-anchor-permalink" href="#Power-Flow-Validation" title="Permalink"></a></h3><p>All three models share the same power flow solution — the dynamic model choice does not affect the steady-state operating point.</p><pre><code class="language-julia hljs">pf_rms = show_powerflow(nw_rms)
@@ -120,7 +121,7 @@ let fig = Figure(size=theme_size(800, 500))
     axislegend(ax1; position=:rb)
     axislegend(ax2; position=:rb)
     fig
-end</code></pre><img src="8ec0d5b5.png" alt="Example block output"/><h3 id="Effect-of-Grid-Weakness"><a class="docs-heading-anchor" href="#Effect-of-Grid-Weakness">Effect of Grid Weakness</a><a id="Effect-of-Grid-Weakness-1"></a><a class="docs-heading-anchor-permalink" href="#Effect-of-Grid-Weakness" title="Permalink"></a></h3><p>Increasing <code>Zscale</code> (scaling all non-transformer line impedances) weakens the grid. The mixed system develops visible oscillations at ~28 Hz as the converter-filter resonance mode loses damping.</p><pre><code class="language-julia hljs">function plot_load_step_comparison(scales; kwargs...)
+end</code></pre><img src="a4d06465.png" alt="Example block output"/><h3 id="Effect-of-Grid-Weakness"><a class="docs-heading-anchor" href="#Effect-of-Grid-Weakness">Effect of Grid Weakness</a><a id="Effect-of-Grid-Weakness-1"></a><a class="docs-heading-anchor-permalink" href="#Effect-of-Grid-Weakness" title="Permalink"></a></h3><p>Increasing <code>Zscale</code> (scaling all non-transformer line impedances) weakens the grid. The mixed system develops visible oscillations at ~28 Hz as the converter-filter resonance mode loses damping.</p><pre><code class="language-julia hljs">function plot_load_step_comparison(scales; kwargs...)
     s0s = [rebuild_with_scale(s0_mix, s)[2] for s in scales]
     sols = [solve(make_load_step_problem(s0; kwargs...), Rodas5P()) for s0 in s0s]
 
@@ -143,7 +144,7 @@ end</code></pre><img src="8ec0d5b5.png" alt="Example block output"/><h3 id="Effe
     fig
 end
 
-plot_load_step_comparison([1.0, 1.5, 2.0])</code></pre><img src="4e9dc98f.png" alt="Example block output"/><details class="admonition is-details">
+plot_load_step_comparison([1.0, 1.5, 2.0])</code></pre><img src="62def274.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme(0.85)) do
@@ -151,7 +152,7 @@ plot_load_step_comparison([1.0, 1.5, 2.0])</code></pre><img src="4e9dc98f.png" a
     end
     save(joinpath(FIGPATH, &quot;01_load_step_scenarios.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="fc490a4f.png" alt="Example block output"/></div>
+end</code></pre><img src="213a1a21.png" alt="Example block output"/></div>
 </details><h2 id="Eigenvalue-Analysis:-Impedance-Sweep"><a class="docs-heading-anchor" href="#Eigenvalue-Analysis:-Impedance-Sweep">Eigenvalue Analysis: Impedance Sweep</a><a id="Eigenvalue-Analysis:-Impedance-Sweep-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Analysis:-Impedance-Sweep" title="Permalink"></a></h2><p>We compute eigenvalues across a range of <code>Zscale</code> values from 0.1 (very strong grid) to 4.0 (very weak grid) and track how each mode migrates in the complex plane.</p><pre><code class="language-julia hljs">function match_eigenvalues(ref_eigs, new_eigs)
     n = length(ref_eigs)
     matched = zeros(ComplexF64, n)
@@ -272,7 +273,7 @@ plot_tracks(tracks, scales_vec;
     xlims=xlims_full,
     ylims=ylims_full,
     title=&quot;Eigenvalue Paths under Varying Grid Strength&quot;
-)</code></pre><img src="4a771940.png" alt="Example block output"/><details class="admonition is-details">
+)</code></pre><img src="f1886945.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme(2/3)) do
@@ -284,13 +285,13 @@ plot_tracks(tracks, scales_vec;
     end
     save(joinpath(FIGPATH, &quot;02_eigenvalue_paths.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="f80713ee.png" alt="Example block output"/></div>
+end</code></pre><img src="997c7890.png" alt="Example block output"/></div>
 </details><p>Identify the critical mode and the nominal / critical operating points used throughout.</p><p>Based on the matched eigenvalue tracks we can find the mode which crosses into instability first:</p><pre><code class="language-julia hljs">idx_last_stable = findlast(vec -&gt; all(λ -&gt; real(λ) &lt; 1e-7, vec), eachcol(tracks))
 scale_critical = scales_vec[idx_last_stable]
 cmode_pair = findall(λ -&gt; real(λ) &gt; 1e-7, tracks[:, idx_last_stable+1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Int64}:
  54
  55</code></pre><p>Those are the modes which dip into instability at the critical point. They are conugate pairs owe can take any of those:</p><pre><code class="language-julia hljs">cmode = first(cmode_pair)
-critical_mode = tracks[cmode, idx_last_stable] # the critical mode just before instability</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.08080169430782994 - 27.635672325761504im</code></pre><p>This is the index of the mode at nominal condition. We also need identify the mode index at the critical position:</p><pre><code class="language-julia hljs">s0_nom = eigenvalue_data[1.0] # get the state at nominal condition
+critical_mode = tracks[cmode, idx_last_stable] # the critical mode just before instability</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.08080169430440101 - 27.63567232576159im</code></pre><p>This is the index of the mode at nominal condition. We also need identify the mode index at the critical position:</p><pre><code class="language-julia hljs">s0_nom = eigenvalue_data[1.0] # get the state at nominal condition
 _, s0_crit = rebuild_with_scale(s0_mix, scale_critical) # get the state at critical condition
 idx_crit = findmin(λ -&gt; abs(λ - critical_mode), jacobian_eigenvals(s0_crit) ./ (2π))[2]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">69</code></pre><p>This is now the index of the critical node at critical condition.</p><h2 id="Impedance-Extraction-via-Linearization"><a class="docs-heading-anchor" href="#Impedance-Extraction-via-Linearization">Impedance Extraction via Linearization</a><a id="Impedance-Extraction-via-Linearization-1"></a><a class="docs-heading-anchor-permalink" href="#Impedance-Extraction-via-Linearization" title="Permalink"></a></h2><p>Using <code>linearize_network</code>, we extract the driving-point impedance at each bus by perturbing the bus current and observing the voltage response. The result is rotated into a local dq frame aligned with the steady-state voltage.</p><pre><code class="language-julia hljs">function compute_Z_aligned(s0, bus_idx)
     G = NetworkDynamics.linearize_network(s0;
@@ -346,7 +347,7 @@ end</code></pre><h3 id="Bode-Plots:-Nominal-vs-Critical-Grid-Strength"><a class=
     fig
 end
 
-plot_Zqd_bode(s0_nom, s0_crit)</code></pre><img src="afce63e0.png" alt="Example block output"/><details class="admonition is-details">
+plot_Zqd_bode(s0_nom, s0_crit)</code></pre><img src="9be7ae49.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme()) do
@@ -354,20 +355,20 @@ plot_Zqd_bode(s0_nom, s0_crit)</code></pre><img src="afce63e0.png" alt="Example 
     end
     save(joinpath(FIGPATH, &quot;03_Zqd_bode.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="92c1b0d4.png" alt="Example block output"/></div>
+end</code></pre><img src="906f9ea1.png" alt="Example block output"/></div>
 </details><h3 id="Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?"><a class="docs-heading-anchor" href="#Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?">Cross-Validation: Is This Truly an Inverter-Inverter Interaction?</a><a id="Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?-1"></a><a class="docs-heading-anchor-permalink" href="#Cross-Validation:-Is-This-Truly-an-Inverter-Inverter-Interaction?" title="Permalink"></a></h3><p>We check whether the resonance appears with only one inverter present. It does not — confirming a coupled interaction between the GFM and GFL mediated by the network.</p><p>First: Simulation with just the GFL at Bus 3. Resonanze is absent.</p><pre><code class="language-julia hljs">let
     s0_gfl_only = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=1.0, verbose=false)[2]
     s0_gfl_crit = load_ieee9bus_emt(; gfm=false, gfl=true, Zscale=scale_critical, verbose=false)[2]
     plot_Zqd_bode(s0_gfl_only, s0_gfl_crit;
         buses=[1,2,3],
         labels=[&quot;SG Bus 1&quot;, &quot;SG Bus 2&quot;, &quot;GFL Bus&quot;])
-end</code></pre><img src="48e1e6e1.png" alt="Example block output"/><p>Second: Simulation with just the GFM at Bus 2. Resonance is absent.</p><pre><code class="language-julia hljs">let
+end</code></pre><img src="1020ad21.png" alt="Example block output"/><p>Second: Simulation with just the GFM at Bus 2. Resonance is absent.</p><pre><code class="language-julia hljs">let
     s0_gfm_only = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=1.0, verbose=false)[2]
     s0_gfm_crit = load_ieee9bus_emt(; gfm=true, gfl=false, Zscale=scale_critical, verbose=false)[2]
     plot_Zqd_bode(s0_gfm_only, s0_gfm_crit;
         buses=[1,2,3],
         labels=[&quot;SG Bus 1&quot;, &quot;GFM Bus&quot;, &quot;SG Bus 3&quot;])
-end</code></pre><img src="954ba6a1.png" alt="Example block output"/><h3 id="Participation-Factors"><a class="docs-heading-anchor" href="#Participation-Factors">Participation Factors</a><a id="Participation-Factors-1"></a><a class="docs-heading-anchor-permalink" href="#Participation-Factors" title="Permalink"></a></h3><p>At nominal grid strength, the critical mode (54/55) is dominated by the inner current controller integrator states of both inverters — a coupled filter resonance. Near instability, the GFL&#39;s PLL angle enters the participation, revealing the mechanism that drives destabilization.</p><pre><code class="language-julia hljs">let io = IOBuffer()
+end</code></pre><img src="4594a787.png" alt="Example block output"/><h3 id="Participation-Factors"><a class="docs-heading-anchor" href="#Participation-Factors">Participation Factors</a><a id="Participation-Factors-1"></a><a class="docs-heading-anchor-permalink" href="#Participation-Factors" title="Permalink"></a></h3><p>At nominal grid strength, the critical mode (54/55) is dominated by the inner current controller integrator states of both inverters — a coupled filter resonance. Near instability, the GFL&#39;s PLL angle enters the participation, revealing the mechanism that drives destabilization.</p><pre><code class="language-julia hljs">let io = IOBuffer()
     println(io, &quot;### Participation Factors — Before Optimization ###&quot;)
     println(io)
     println(io, &quot;=== Nominal grid strength (Zscale=1.0) ===&quot;)
@@ -383,20 +384,20 @@ end;</code></pre><pre class="documenter-example-output"><code class="nohighlight
 === Nominal grid strength (Zscale=1.0) ===
 Participation Factors:
   Mode  Real (Hz)  Imag (Hz)  Factor   State
-  ───────────────────────────────────────────────────────────────────
+  ─────────────────────────────────────────────────────────────────
   54    -5.486     -43.59     0.1429   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
                               0.1323   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
                               0.116    VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
                               0.1039   VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
-                              0.09532  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.09532  VIndex(3, :gfl₊csrc₊pll₊θ)
 
 === Near instability (Zscale=2.25) ===
 Participation Factors:
   Mode  Real (Hz)  Imag (Hz)  Factor   State
-  ───────────────────────────────────────────────────────────────────
+  ─────────────────────────────────────────────────────────────────
   69    -0.0808    -27.64     0.1552   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
                               0.1443   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
-                              0.1277   VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.1277   VIndex(3, :gfl₊csrc₊pll₊θ)
                               0.08483  VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
                               0.05858  VIndex(2, :gfm₊vsrc₊vc₊γ_q)
                               0.05536  VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
@@ -406,12 +407,14 @@ Participation Factors:
         name = string(idx.subidx)
         !(
             contains(name, &quot;connected&quot;) ||
-            contains(name, r&quot;Lf$&quot;)      ||
+            contains(name, r&quot;Xf$&quot;)      ||
             contains(name, r&quot;Rf$&quot;)      ||
-            contains(name, r&quot;C$&quot;)       ||
-            contains(name, r&quot;Lg$&quot;)      ||
+            contains(name, r&quot;Bc$&quot;)      ||
+            contains(name, r&quot;₊B$&quot;)      ||
+            contains(name, r&quot;Xg$&quot;)      ||
             contains(name, r&quot;Rg$&quot;)      ||
-            contains(name, r&quot;ω0$&quot;)
+            contains(name, r&quot;base$&quot;)    ||
+            contains(name, r&quot;ωframe$&quot;)
         )
     end
 end
@@ -430,7 +433,7 @@ let io = IOBuffer()
 end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
 <span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
 <span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 23.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/XxRG5/src/PreallocationTools.jl:560</span>
 ### Eigenvalue Sensitivities — Before Optimization ###
 
 === Nominal grid strength (Zscale=1.0) ===
@@ -508,7 +511,7 @@ function generate_loss(problems, tpidx)
             p_new .= prob.p
             p_new[tpidx] .= p
 
-            sol = solve(prob, Rodas5P(autodiff=true); p=p_new, saveat=t_eval)
+            sol = solve(prob, Rodas5P(autodiff=AutoForwardDiff()); p=p_new, saveat=t_eval)
             !SciMLBase.successful_retcode(sol) &amp;&amp; return Inf
 
             all_V = reduce(hcat, sol(t_eval; idxs=VIndex([2, 3, 8], :busbar₊u_mag)).u)
@@ -543,109 +546,109 @@ loss_fn, p0_opt = generate_loss(opt_problems, tpidx);</code></pre><h3 id="Run-Op
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
 <span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
 <span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 15.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
-Iteration 1: loss = 3.153875416728972e-5<span class="sgr32"> ✓</span>
-Iteration 2: loss = 2.8047600361781625e-5<span class="sgr32"> ✓</span>
-Iteration 3: loss = 2.6023048554081265e-5<span class="sgr32"> ✓</span>
-Iteration 4: loss = 2.4666947849174532e-5<span class="sgr32"> ✓</span>
-Iteration 5: loss = 2.3684996858916633e-5<span class="sgr32"> ✓</span>
-Iteration 6: loss = 2.292144580747072e-5<span class="sgr32"> ✓</span>
-Iteration 7: loss = 2.230506903536908e-5<span class="sgr32"> ✓</span>
-Iteration 8: loss = 2.1799756859983756e-5<span class="sgr32"> ✓</span>
-Iteration 9: loss = 2.1365271548086446e-5<span class="sgr32"> ✓</span>
-Iteration 10: loss = 2.0987514139555864e-5<span class="sgr32"> ✓</span>
-Iteration 11: loss = 2.0660487138529627e-5<span class="sgr32"> ✓</span>
-Iteration 12: loss = 2.0368623230375184e-5<span class="sgr32"> ✓</span>
-Iteration 13: loss = 2.010928936327942e-5<span class="sgr32"> ✓</span>
-Iteration 14: loss = 1.987343764625194e-5<span class="sgr32"> ✓</span>
-Iteration 15: loss = 1.9658968575318424e-5<span class="sgr32"> ✓</span>
-Iteration 16: loss = 1.9464528847459113e-5<span class="sgr32"> ✓</span>
-Iteration 17: loss = 1.928550547563169e-5<span class="sgr32"> ✓</span>
-Iteration 18: loss = 1.9112092739557444e-5<span class="sgr32"> ✓</span>
-Iteration 19: loss = 1.8958876158022497e-5<span class="sgr32"> ✓</span>
-Iteration 20: loss = 1.8813589108314e-5<span class="sgr32"> ✓</span>
-Iteration 21: loss = 1.867699585941611e-5<span class="sgr32"> ✓</span>
-Iteration 22: loss = 1.8551098648638146e-5<span class="sgr32"> ✓</span>
-Iteration 23: loss = 1.8427641993008835e-5<span class="sgr32"> ✓</span>
-Iteration 24: loss = 1.831702933756514e-5<span class="sgr32"> ✓</span>
-Iteration 25: loss = 1.8203363303990192e-5<span class="sgr32"> ✓</span>
-Iteration 26: loss = 1.8100940195565763e-5<span class="sgr32"> ✓</span>
-Iteration 27: loss = 1.8011975794338585e-5<span class="sgr32"> ✓</span>
-Iteration 28: loss = 1.7916514961448127e-5<span class="sgr32"> ✓</span>
-Iteration 29: loss = 1.782330812725108e-5<span class="sgr32"> ✓</span>
-Iteration 30: loss = 1.7735710139760993e-5<span class="sgr32"> ✓</span>
-Iteration 31: loss = 1.7652989220237035e-5<span class="sgr32"> ✓</span>
-Iteration 32: loss = 1.7575062687681645e-5<span class="sgr32"> ✓</span>
-Iteration 33: loss = 1.7505455388845173e-5<span class="sgr32"> ✓</span>
-Iteration 34: loss = 1.741910193936706e-5<span class="sgr32"> ✓</span>
-Iteration 35: loss = 1.7346590296854982e-5<span class="sgr32"> ✓</span>
-Iteration 36: loss = 1.7280331145295135e-5<span class="sgr32"> ✓</span>
-Iteration 37: loss = 1.720980604827306e-5<span class="sgr32"> ✓</span>
-Iteration 38: loss = 1.715257324634012e-5<span class="sgr32"> ✓</span>
-Iteration 39: loss = 1.708161844078946e-5<span class="sgr32"> ✓</span>
-Iteration 40: loss = 1.7020458927990516e-5<span class="sgr32"> ✓</span>
-Iteration 41: loss = 1.696214684850239e-5<span class="sgr32"> ✓</span>
-Iteration 42: loss = 1.6904302990187904e-5<span class="sgr32"> ✓</span>
-Iteration 43: loss = 1.684844723699749e-5<span class="sgr32"> ✓</span>
-Iteration 44: loss = 1.6791895828153908e-5<span class="sgr32"> ✓</span>
-Iteration 45: loss = 1.6743448378079835e-5<span class="sgr32"> ✓</span>
-Iteration 46: loss = 1.668529629593249e-5<span class="sgr32"> ✓</span>
-Iteration 47: loss = 1.663674025108447e-5<span class="sgr32"> ✓</span>
-Iteration 48: loss = 1.6585458948488027e-5<span class="sgr32"> ✓</span>
-Iteration 49: loss = 1.6533068454139264e-5<span class="sgr32"> ✓</span>
-Iteration 50: loss = 1.647841922966663e-5<span class="sgr32"> ✓</span>
-Iteration 51: loss = 1.6434631897101822e-5<span class="sgr32"> ✓</span>
-Iteration 52: loss = 1.6388583831219236e-5<span class="sgr32"> ✓</span>
-Iteration 53: loss = 1.63411692073913e-5<span class="sgr32"> ✓</span>
-Iteration 54: loss = 1.628887728578396e-5<span class="sgr32"> ✓</span>
-Iteration 55: loss = 1.6257389119740434e-5<span class="sgr32"> ✓</span>
-Iteration 56: loss = 1.6209600334e-5<span class="sgr32"> ✓</span>
-Iteration 57: loss = 1.6164374595248985e-5<span class="sgr32"> ✓</span>
-Iteration 58: loss = 1.6121061486624057e-5<span class="sgr32"> ✓</span>
-Iteration 59: loss = 1.608646664023056e-5<span class="sgr32"> ✓</span>
-Iteration 60: loss = 1.6042386845952796e-5<span class="sgr32"> ✓</span>
-Iteration 61: loss = 1.6002448807656302e-5<span class="sgr32"> ✓</span>
-Iteration 62: loss = 1.595992960860603e-5<span class="sgr32"> ✓</span>
-Iteration 63: loss = 1.5923340760404984e-5<span class="sgr32"> ✓</span>
-Iteration 64: loss = 1.5877152798090692e-5<span class="sgr32"> ✓</span>
-Iteration 65: loss = 1.5841214595915293e-5<span class="sgr32"> ✓</span>
-Iteration 66: loss = 1.5805888211623045e-5<span class="sgr32"> ✓</span>
-Iteration 67: loss = 1.5769523325356887e-5<span class="sgr32"> ✓</span>
-Iteration 68: loss = 1.5735589036949063e-5<span class="sgr32"> ✓</span>
-Iteration 69: loss = 1.5691982378114785e-5<span class="sgr32"> ✓</span>
-Iteration 70: loss = 1.5658830069088583e-5<span class="sgr32"> ✓</span>
-Iteration 71: loss = 1.562448446580417e-5<span class="sgr32"> ✓</span>
-Iteration 72: loss = 1.5593519299234708e-5<span class="sgr32"> ✓</span>
-Iteration 73: loss = 1.5554489380632725e-5<span class="sgr32"> ✓</span>
-Iteration 74: loss = 1.551960852185252e-5<span class="sgr32"> ✓</span>
-Iteration 75: loss = 1.548679417667346e-5<span class="sgr32"> ✓</span>
-Iteration 76: loss = 1.5449715955666403e-5<span class="sgr32"> ✓</span>
-Iteration 77: loss = 1.541958437661376e-5<span class="sgr32"> ✓</span>
-Iteration 78: loss = 1.5382834508977505e-5<span class="sgr32"> ✓</span>
-Iteration 79: loss = 1.5352298900812658e-5<span class="sgr32"> ✓</span>
-Iteration 80: loss = 1.5314488137073466e-5<span class="sgr32"> ✓</span>
-Iteration 81: loss = 1.5285417662702617e-5<span class="sgr32"> ✓</span>
-Iteration 82: loss = 1.5254136913316018e-5<span class="sgr32"> ✓</span>
-Iteration 83: loss = 1.5225822665814481e-5<span class="sgr32"> ✓</span>
-Iteration 84: loss = 1.5190691605074871e-5<span class="sgr32"> ✓</span>
-Iteration 85: loss = 1.5160519867158789e-5<span class="sgr32"> ✓</span>
-Iteration 86: loss = 1.5127770530187726e-5<span class="sgr32"> ✓</span>
-Iteration 87: loss = 1.5092887873333327e-5<span class="sgr32"> ✓</span>
-Iteration 88: loss = 1.5059968234634714e-5<span class="sgr32"> ✓</span>
-Iteration 89: loss = 1.502018841236714e-5<span class="sgr32"> ✓</span>
-Iteration 90: loss = 1.4991375803038944e-5<span class="sgr32"> ✓</span>
-Iteration 91: loss = 1.4958597130260197e-5<span class="sgr32"> ✓</span>
-Iteration 92: loss = 1.4925289390045774e-5<span class="sgr32"> ✓</span>
-Iteration 93: loss = 1.4889284897405711e-5<span class="sgr32"> ✓</span>
-Iteration 94: loss = 1.4852099808966697e-5<span class="sgr32"> ✓</span>
-Iteration 95: loss = 1.4827648469066432e-5<span class="sgr32"> ✓</span>
-Iteration 96: loss = 1.4782420986682033e-5<span class="sgr32"> ✓</span>
-Iteration 97: loss = 1.4747825200139011e-5<span class="sgr32"> ✓</span>
-Iteration 98: loss = 1.4716623369440503e-5<span class="sgr32"> ✓</span>
-Iteration 99: loss = 1.4666468059326762e-5<span class="sgr32"> ✓</span>
-Iteration 100: loss = 1.4619798660936288e-5<span class="sgr32"> ✓</span>
-Iteration 100: loss = 1.4619798660936288e-5
-150.195806 seconds (78.00 M allocations: 9.674 GiB, 2.22% gc time, 22.75% compilation time)</code></pre><h3 id="Optimized-Parameters"><a class="docs-heading-anchor" href="#Optimized-Parameters">Optimized Parameters</a><a id="Optimized-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Optimized-Parameters" title="Permalink"></a></h3><p>The optimization reveals that the inner current loop proportional gain (CC1_KP) needed a large increase, while the outer current loop gain (CC2_KP) and grid voltage feedforward (CC2_F) needed reduction. The PLL and CC1 integral gains were already near-optimal.</p><pre><code class="language-julia hljs">let io = IOBuffer()
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/XxRG5/src/PreallocationTools.jl:560</span>
+Iteration 1: loss = 3.153875416736219e-5<span class="sgr32"> ✓</span>
+Iteration 2: loss = 2.804760036185907e-5<span class="sgr32"> ✓</span>
+Iteration 3: loss = 2.602300853449128e-5<span class="sgr32"> ✓</span>
+Iteration 4: loss = 2.4666937063496504e-5<span class="sgr32"> ✓</span>
+Iteration 5: loss = 2.3684996638464823e-5<span class="sgr32"> ✓</span>
+Iteration 6: loss = 2.2921446673155355e-5<span class="sgr32"> ✓</span>
+Iteration 7: loss = 2.2305068996520785e-5<span class="sgr32"> ✓</span>
+Iteration 8: loss = 2.1799756110943546e-5<span class="sgr32"> ✓</span>
+Iteration 9: loss = 2.1365274187266763e-5<span class="sgr32"> ✓</span>
+Iteration 10: loss = 2.0987513951810534e-5<span class="sgr32"> ✓</span>
+Iteration 11: loss = 2.0660485359371646e-5<span class="sgr32"> ✓</span>
+Iteration 12: loss = 2.0368623191544588e-5<span class="sgr32"> ✓</span>
+Iteration 13: loss = 2.0109289317848345e-5<span class="sgr32"> ✓</span>
+Iteration 14: loss = 1.9873438804335205e-5<span class="sgr32"> ✓</span>
+Iteration 15: loss = 1.965896741051451e-5<span class="sgr32"> ✓</span>
+Iteration 16: loss = 1.9464529132772007e-5<span class="sgr32"> ✓</span>
+Iteration 17: loss = 1.9285509750044126e-5<span class="sgr32"> ✓</span>
+Iteration 18: loss = 1.9112092769090867e-5<span class="sgr32"> ✓</span>
+Iteration 19: loss = 1.8958876176524492e-5<span class="sgr32"> ✓</span>
+Iteration 20: loss = 1.881358900592775e-5<span class="sgr32"> ✓</span>
+Iteration 21: loss = 1.8676995867782677e-5<span class="sgr32"> ✓</span>
+Iteration 22: loss = 1.8551098597006674e-5<span class="sgr32"> ✓</span>
+Iteration 23: loss = 1.842764220709922e-5<span class="sgr32"> ✓</span>
+Iteration 24: loss = 1.8317029326510368e-5<span class="sgr32"> ✓</span>
+Iteration 25: loss = 1.8203363206140306e-5<span class="sgr32"> ✓</span>
+Iteration 26: loss = 1.8100940183306997e-5<span class="sgr32"> ✓</span>
+Iteration 27: loss = 1.8011977302221505e-5<span class="sgr32"> ✓</span>
+Iteration 28: loss = 1.791651509273273e-5<span class="sgr32"> ✓</span>
+Iteration 29: loss = 1.782330814778661e-5<span class="sgr32"> ✓</span>
+Iteration 30: loss = 1.77357102193558e-5<span class="sgr32"> ✓</span>
+Iteration 31: loss = 1.7652968519095273e-5<span class="sgr32"> ✓</span>
+Iteration 32: loss = 1.7575062508451886e-5<span class="sgr32"> ✓</span>
+Iteration 33: loss = 1.7505454331244358e-5<span class="sgr32"> ✓</span>
+Iteration 34: loss = 1.741910193249595e-5<span class="sgr32"> ✓</span>
+Iteration 35: loss = 1.7346590316283638e-5<span class="sgr32"> ✓</span>
+Iteration 36: loss = 1.728033080935297e-5<span class="sgr32"> ✓</span>
+Iteration 37: loss = 1.720980607404537e-5<span class="sgr32"> ✓</span>
+Iteration 38: loss = 1.7152572388156998e-5<span class="sgr32"> ✓</span>
+Iteration 39: loss = 1.7081618496765662e-5<span class="sgr32"> ✓</span>
+Iteration 40: loss = 1.7020458874198272e-5<span class="sgr32"> ✓</span>
+Iteration 41: loss = 1.6962147010658534e-5<span class="sgr32"> ✓</span>
+Iteration 42: loss = 1.6904302987726474e-5<span class="sgr32"> ✓</span>
+Iteration 43: loss = 1.6848447398109136e-5<span class="sgr32"> ✓</span>
+Iteration 44: loss = 1.6791895592353952e-5<span class="sgr32"> ✓</span>
+Iteration 45: loss = 1.6743448329724296e-5<span class="sgr32"> ✓</span>
+Iteration 46: loss = 1.66852988741152e-5<span class="sgr32"> ✓</span>
+Iteration 47: loss = 1.663673703249662e-5<span class="sgr32"> ✓</span>
+Iteration 48: loss = 1.6585456722291878e-5<span class="sgr32"> ✓</span>
+Iteration 49: loss = 1.6533069715506343e-5<span class="sgr32"> ✓</span>
+Iteration 50: loss = 1.6478419238632644e-5<span class="sgr32"> ✓</span>
+Iteration 51: loss = 1.6434632227220516e-5<span class="sgr32"> ✓</span>
+Iteration 52: loss = 1.6388584053468515e-5<span class="sgr32"> ✓</span>
+Iteration 53: loss = 1.634116823386819e-5<span class="sgr32"> ✓</span>
+Iteration 54: loss = 1.6288913434752967e-5<span class="sgr32"> ✓</span>
+Iteration 55: loss = 1.625738720272416e-5<span class="sgr32"> ✓</span>
+Iteration 56: loss = 1.6209600633479527e-5<span class="sgr32"> ✓</span>
+Iteration 57: loss = 1.6164374558106614e-5<span class="sgr32"> ✓</span>
+Iteration 58: loss = 1.61210690424851e-5<span class="sgr32"> ✓</span>
+Iteration 59: loss = 1.6086466054812454e-5<span class="sgr32"> ✓</span>
+Iteration 60: loss = 1.6042386559847273e-5<span class="sgr32"> ✓</span>
+Iteration 61: loss = 1.6002448824702657e-5<span class="sgr32"> ✓</span>
+Iteration 62: loss = 1.595992969191357e-5<span class="sgr32"> ✓</span>
+Iteration 63: loss = 1.5923341124841326e-5<span class="sgr32"> ✓</span>
+Iteration 64: loss = 1.5877152671223652e-5<span class="sgr32"> ✓</span>
+Iteration 65: loss = 1.5841214173377156e-5<span class="sgr32"> ✓</span>
+Iteration 66: loss = 1.580588803788655e-5<span class="sgr32"> ✓</span>
+Iteration 67: loss = 1.5769522922946502e-5<span class="sgr32"> ✓</span>
+Iteration 68: loss = 1.573558878390047e-5<span class="sgr32"> ✓</span>
+Iteration 69: loss = 1.5691982288440078e-5<span class="sgr32"> ✓</span>
+Iteration 70: loss = 1.5658830164565842e-5<span class="sgr32"> ✓</span>
+Iteration 71: loss = 1.562448431474166e-5<span class="sgr32"> ✓</span>
+Iteration 72: loss = 1.5593519856469895e-5<span class="sgr32"> ✓</span>
+Iteration 73: loss = 1.5554490484935592e-5<span class="sgr32"> ✓</span>
+Iteration 74: loss = 1.5519608360913764e-5<span class="sgr32"> ✓</span>
+Iteration 75: loss = 1.5486794423434643e-5<span class="sgr32"> ✓</span>
+Iteration 76: loss = 1.5449715684952024e-5<span class="sgr32"> ✓</span>
+Iteration 77: loss = 1.541958421709776e-5<span class="sgr32"> ✓</span>
+Iteration 78: loss = 1.5382834378187645e-5<span class="sgr32"> ✓</span>
+Iteration 79: loss = 1.5352298013849307e-5<span class="sgr32"> ✓</span>
+Iteration 80: loss = 1.5314472353973423e-5<span class="sgr32"> ✓</span>
+Iteration 81: loss = 1.5284944052374758e-5<span class="sgr32"> ✓</span>
+Iteration 82: loss = 1.5254136914111552e-5<span class="sgr32"> ✓</span>
+Iteration 83: loss = 1.5225822537984494e-5<span class="sgr32"> ✓</span>
+Iteration 84: loss = 1.5190691711424022e-5<span class="sgr32"> ✓</span>
+Iteration 85: loss = 1.5160519701427347e-5<span class="sgr32"> ✓</span>
+Iteration 86: loss = 1.5127770273929807e-5<span class="sgr32"> ✓</span>
+Iteration 87: loss = 1.5092888688636968e-5<span class="sgr32"> ✓</span>
+Iteration 88: loss = 1.5059968135264086e-5<span class="sgr32"> ✓</span>
+Iteration 89: loss = 1.5020187981325532e-5<span class="sgr32"> ✓</span>
+Iteration 90: loss = 1.4991375592653412e-5<span class="sgr32"> ✓</span>
+Iteration 91: loss = 1.495859683315266e-5<span class="sgr32"> ✓</span>
+Iteration 92: loss = 1.4925288658624064e-5<span class="sgr32"> ✓</span>
+Iteration 93: loss = 1.4889284465412447e-5<span class="sgr32"> ✓</span>
+Iteration 94: loss = 1.4852099765885485e-5<span class="sgr32"> ✓</span>
+Iteration 95: loss = 1.4827650095485655e-5<span class="sgr32"> ✓</span>
+Iteration 96: loss = 1.4782420743130117e-5<span class="sgr32"> ✓</span>
+Iteration 97: loss = 1.4747824809537288e-5<span class="sgr32"> ✓</span>
+Iteration 98: loss = 1.4716622545663277e-5<span class="sgr32"> ✓</span>
+Iteration 99: loss = 1.4666467425509495e-5<span class="sgr32"> ✓</span>
+Iteration 100: loss = 1.4619798001451496e-5<span class="sgr32"> ✓</span>
+Iteration 100: loss = 1.4619798001451496e-5
+100.186212 seconds (100.76 M allocations: 8.433 GiB, 4.83% gc time, 35.72% compilation time)</code></pre><h3 id="Optimized-Parameters"><a class="docs-heading-anchor" href="#Optimized-Parameters">Optimized Parameters</a><a id="Optimized-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Optimized-Parameters" title="Permalink"></a></h3><p>The optimization reveals that the inner current loop proportional gain (CC1_KP) needed a large increase, while the outer current loop gain (CC2_KP) and grid voltage feedforward (CC2_F) needed reduction. The PLL and CC1 integral gains were already near-optimal.</p><pre><code class="language-julia hljs">let io = IOBuffer()
     println(io, &quot;symbol\toriginal\ttuned\tchange&quot;)
     for (sym, orig, tuned) in zip(tunable_p, p0_opt, optsol.u)
         pct = round(100 * (tuned - orig) / orig; digits=1)
@@ -701,7 +704,7 @@ function plot_before_after(sols_before, sols_after, scales; buses=[2, 3, 8], lab
     fig
 end
 
-plot_before_after(sols_default, sols_optimized, opt_scales)</code></pre><img src="a92123b7.png" alt="Example block output"/><details class="admonition is-details">
+plot_before_after(sols_default, sols_optimized, opt_scales)</code></pre><img src="90627437.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme_wide(3/7)) do
@@ -709,7 +712,7 @@ plot_before_after(sols_default, sols_optimized, opt_scales)</code></pre><img src
     end
     save(joinpath(FIGPATH, &quot;04_load_step_before_after.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="0cc09636.png" alt="Example block output"/></div>
+end</code></pre><img src="b85542a9.png" alt="Example block output"/></div>
 </details><h3 id="Before/After-Comparison:-Eigenvalue-Trajectories"><a class="docs-heading-anchor" href="#Before/After-Comparison:-Eigenvalue-Trajectories">Before/After Comparison: Eigenvalue Trajectories</a><a id="Before/After-Comparison:-Eigenvalue-Trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Before/After-Comparison:-Eigenvalue-Trajectories" title="Permalink"></a></h3><p>We recompute eigenvalues with optimized parameters at each grid strength and overlay them with the baseline. The critical mode should have moved left (more damping).</p><pre><code class="language-julia hljs">function reinitialize_with_params(s0, tunable_p, p_new)
     _nw = extract_nw(s0)
     nw = Network(_nw)
@@ -738,25 +741,25 @@ end;</code></pre><pre class="documenter-example-output"><code class="nohighlight
 === Nominal grid strength (Zscale=1.0) ===
 Participation Factors:
   Mode  Real (Hz)  Imag (Hz)  Factor   State
-  ───────────────────────────────────────────────────────────────────
+  ─────────────────────────────────────────────────────────────────
   54    -7.78       24.47     0.1411   VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
                               0.1153   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
                               0.1114   VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
                               0.1005   VIndex(2, :gfm₊vsrc₊vc₊γ_q)
                               0.09098  VIndex(3, :gfl₊csrc₊cc1₊γ_q)
-                              0.08546  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.08546  VIndex(3, :gfl₊csrc₊pll₊θ)
                               0.07893  VIndex(2, :gfm₊vsrc₊vc₊γ_d)
                               0.05307  VIndex(3, :gfl₊csrc₊vc₊γ_d)
 
 === Near instability (Zscale=2.25) ===
 Participation Factors:
   Mode  Real (Hz)  Imag (Hz)  Factor   State
-  ───────────────────────────────────────────────────────────────────
+  ─────────────────────────────────────────────────────────────────
   54    -5.75      -22.76     0.1334   VIndex(2, :gfm₊vsrc₊cc1₊γ_q)
                               0.1274   VIndex(3, :gfl₊csrc₊cc1₊γ_d)
                               0.1167   VIndex(2, :gfm₊vsrc₊vc₊γ_q)
                               0.1022   VIndex(3, :gfl₊csrc₊cc1₊γ_q)
-                              0.09461  VIndex(3, :gfl₊csrc₊pll₊δ_pll)
+                              0.09461  VIndex(3, :gfl₊csrc₊pll₊θ)
                               0.07644  VIndex(2, :gfm₊vsrc₊cc1₊γ_d)
                               0.06639  VIndex(2, :gfm₊vsrc₊vc₊γ_d)
                               0.06425  VIndex(3, :gfl₊csrc₊vc₊γ_d)</code></pre><pre><code class="language-julia hljs">let io = IOBuffer()
@@ -776,7 +779,7 @@ Participation Factors:
 end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>The supplied DiffCache was too small and was enlarged. This incurs allocations
 <span class="sgr33"><span class="sgr1">│ </span></span>        on the first call to `get_tmp`. If few calls to `get_tmp` occur and optimal performance is essential,
 <span class="sgr33"><span class="sgr1">│ </span></span>        consider changing &#39;N&#39;/chunk size of this DiffCache to 23.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/K2Foo/src/PreallocationTools.jl:204</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ PreallocationTools ~/.julia/packages/PreallocationTools/XxRG5/src/PreallocationTools.jl:560</span>
 ### Eigenvalue Sensitivities — After Optimization ###
 
 === Nominal grid strength (Zscale=1.0) ===
@@ -901,7 +904,7 @@ function plot_optimized_tracks((tr_def, sv_def), (tr_opt, sv_opt);
     fig
 end
 
-plot_optimized_tracks(tracks_default, tracks_optimized)</code></pre><img src="e9022784.png" alt="Example block output"/><details class="admonition is-details">
+plot_optimized_tracks(tracks_default, tracks_optimized)</code></pre><img src="5d5e4004.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme(2/3)) do
@@ -909,7 +912,7 @@ plot_optimized_tracks(tracks_default, tracks_optimized)</code></pre><img src="e9
     end
     save(joinpath(FIGPATH, &quot;05_eigenvalue_tracks_before_after.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="bbbbff8c.png" alt="Example block output"/></div>
+end</code></pre><img src="652957b0.png" alt="Example block output"/></div>
 </details><h3 id="Validation:-Previously-Unstable-Scenario"><a class="docs-heading-anchor" href="#Validation:-Previously-Unstable-Scenario">Validation: Previously Unstable Scenario</a><a id="Validation:-Previously-Unstable-Scenario-1"></a><a class="docs-heading-anchor-permalink" href="#Validation:-Previously-Unstable-Scenario" title="Permalink"></a></h3><p>We test the optimized parameters at Zscale=2.25, which was unstable with default parameters. If the system is now stable, the optimization has extended the stability boundary.</p><pre><code class="language-julia hljs">function plot_strong_disturbance()
     scale_def = 2.25
     scale_opt = 4.0
@@ -942,7 +945,7 @@ end</code></pre><img src="bbbbff8c.png" alt="Example block output"/></div>
     fig
 end
 
-plot_strong_disturbance()</code></pre><img src="51ce9082.png" alt="Example block output"/><details class="admonition is-details">
+plot_strong_disturbance()</code></pre><img src="cfebba84.png" alt="Example block output"/><details class="admonition is-details">
 <summary class="admonition-header">Export PDF for paper (IEEE theme)</summary>
 <div class="admonition-body"><pre><code class="language-julia hljs">let
     fig = with_theme(ieee_theme(2/3)) do
@@ -950,7 +953,7 @@ plot_strong_disturbance()</code></pre><img src="51ce9082.png" alt="Example block
     end
     save(joinpath(FIGPATH, &quot;06_strong_disturbance_response.pdf&quot;), fig; pt_per_unit=1)
     fig
-end</code></pre><img src="a3ca0c86.png" alt="Example block output"/></div>
+end</code></pre><img src="6767d827.png" alt="Example block output"/></div>
 </details><h2 id="Eigenvalue-Evolution-Animation"><a class="docs-heading-anchor" href="#Eigenvalue-Evolution-Animation">Eigenvalue Evolution Animation</a><a id="Eigenvalue-Evolution-Animation-1"></a><a class="docs-heading-anchor-permalink" href="#Eigenvalue-Evolution-Animation" title="Permalink"></a></h2><p>Replay the optimisation trajectory: each frame corresponds to an improving iterate captured in <code>opt_states</code> (strictly monotone in loss), so the animation shows only the successful descent.</p><pre><code class="language-julia hljs"># Pre-compute tracks for every animation frame — expensive, done once.
 anim_frames = let N = length(opt_states)
     map(enumerate(opt_states)) do (i, s)
@@ -985,4 +988,4 @@ end</code></pre><h3 id="Animation:-Voltage-Response-Eigenvalue-Tracks-(Zscale2.0
         i == 1 &amp;&amp; axislegend(ax_v; position=:rb)
         plot_tracks(f.tracks, f.sv; ax=ax_eig, xlims=xlims_full, ylims=ylims_full)
     end
-end</code></pre><p><video src="../voltage_eigenvalue_evolution.mp4" controls="true" title="optimization video"><a href="../voltage_eigenvalue_evolution.mp4">optimization video</a></video></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 17 April 2026 14:24">Friday 17 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p><video src="../voltage_eigenvalue_evolution.mp4" controls="true" title="optimization video"><a href="../voltage_eigenvalue_evolution.mp4">optimization video</a></video></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 27 August 2026 16:41">Thursday 27 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
