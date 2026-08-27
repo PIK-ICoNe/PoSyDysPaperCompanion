@@ -28,6 +28,14 @@ using OrderedCollections: OrderedDict
 using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
 using Optimization, Optimisers, OptimizationOptimisers
 
+#=
+PowerDynamics reads the global per-unit bases when a component is constructed, so they
+have to be set before any model is built. The IEEE 9-bus runs at 60 Hz on a 100 MVA base.
+(`PoSyDysPaperCompanion` also does this on load, so the helpers work standalone.)
+=#
+
+set_fbase!(60)
+set_Sbase!(100)
 
 #=
 ```@raw html #md
@@ -602,12 +610,14 @@ params_of_interest = let
         name = string(idx.subidx)
         !(
             contains(name, "connected") ||
-            contains(name, r"Lf$")      ||
+            contains(name, r"Xf$")      ||
             contains(name, r"Rf$")      ||
-            contains(name, r"C$")       ||
-            contains(name, r"Lg$")      ||
+            contains(name, r"Bc$")      ||
+            contains(name, r"₊B$")      ||
+            contains(name, r"Xg$")      ||
             contains(name, r"Rg$")      ||
-            contains(name, r"ω0$")
+            contains(name, r"base$")    ||
+            contains(name, r"ωframe$")
         )
     end
 end
@@ -672,7 +682,7 @@ function generate_loss(problems, tpidx)
             p_new .= prob.p
             p_new[tpidx] .= p
 
-            sol = solve(prob, Rodas5P(autodiff=true); p=p_new, saveat=t_eval)
+            sol = solve(prob, Rodas5P(autodiff=AutoForwardDiff()); p=p_new, saveat=t_eval)
             !SciMLBase.successful_retcode(sol) && return Inf
 
             all_V = reduce(hcat, sol(t_eval; idxs=VIndex([2, 3, 8], :busbar₊u_mag)).u)

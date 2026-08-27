@@ -23,9 +23,7 @@ SparseConnectivityTracer = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [sources]
-NetworkDynamics = {rev = "8385b837953ea8e43b15665a67b43aac068d2778", url = "https://github.com/JuliaDynamics/NetworkDynamics.jl.git"}
 PoSyDysPaperCompanion = {path = ".."}
-PowerDynamics = {rev = "aeaba367c7a2000c6da51e146d67d77cdad1a7e3", url = "https://github.com/JuliaEnergy/PowerDynamics.jl.git"}
 
 [compat]
 CairoMakie = "0.15"
@@ -36,7 +34,7 @@ Graphs = "≥0.0.1"
 Literate = "2"
 ModelingToolkit = "≥0.0.1"
 ModelingToolkitStandardLibrary = "≥0.0.1"
-NetworkDynamics = "≥0.0.1"
+NetworkDynamics = "1.1"
 Optimisers = "≥0.0.1"
 Optimization = "≥0.0.1"
 OptimizationOptimisers = "≥0.0.1"
@@ -45,6 +43,6 @@ OrdinaryDiffEqNonlinearSolve = "≥0.0.1"
 OrdinaryDiffEqRosenbrock = "≥0.0.1"
 OrdinaryDiffEqTsit5 = "≥0.0.1"
 PoSyDysPaperCompanion = "≥0.0.1"
-PowerDynamics = "≥0.0.1"
+PowerDynamics = "5"
 SparseConnectivityTracer = "≥0.0.1"
 SymbolicIndexingInterface = "≥0.0.1"

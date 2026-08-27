@@ -24,9 +24,7 @@ using ModelingToolkit: t_nounits as t, D_nounits as Dt
 
 
     ]
-    sys = System(eqs, t; name, systems)
-    set_mtk_defaults!(sys, defaults)
-    return sys
+    return set_mtk_defaults(System(eqs, t; name, systems), defaults)
 end
 @component function ConstantPowerInverter(; name, defaults...)
     @named cp_outer = ConstantPowerOuter()
@@ -38,10 +36,8 @@ end
         connect(csrc.iset_d_in, cp_outer.id_out)
         connect(csrc.iset_q_in, cp_outer.iq_out)
         # Rotate terminal voltage into PLL dq-frame for the outer controller
-        cp_outer.Vd_in.u ~  cos(csrc.pll.δ_pll)*terminal.u_r + sin(csrc.pll.δ_pll)*terminal.u_i
-        cp_outer.Vq_in.u ~ -sin(csrc.pll.δ_pll)*terminal.u_r + cos(csrc.pll.δ_pll)*terminal.u_i
+        cp_outer.Vd_in.u ~  cos(csrc.pll.θ)*terminal.u_r + sin(csrc.pll.θ)*terminal.u_i
+        cp_outer.Vq_in.u ~ -sin(csrc.pll.θ)*terminal.u_r + cos(csrc.pll.θ)*terminal.u_i
     ]
-    sys = System(eqs, t; name, systems=[cp_outer, csrc, terminal])
-    set_mtk_defaults!(sys, defaults)
-    return sys
+    return set_mtk_defaults(System(eqs, t; name, systems=[cp_outer, csrc, terminal]), defaults)
 end
